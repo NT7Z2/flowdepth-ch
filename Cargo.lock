@@ -1486,6 +1486,7 @@ dependencies = [
  "log",
  "num-traits",
  "palette",
+ "quick-xml",
  "redb",
  "reqwest",
  "rfd",

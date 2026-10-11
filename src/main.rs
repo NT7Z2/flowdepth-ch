@@ -2158,6 +2158,12 @@ impl Flowsurface {
             .market_subscriptions(&self.data_sources.exchange)
             .map(Message::MarketWsEvent);
 
+        let layout_id = self.layout_manager.active_layout_id().map(|id| id.unique);
+        let news = self
+            .active_dashboard()
+            .news_subscriptions(self.main_window.id, self.network_config.proxy.as_ref())
+            .with(layout_id)
+            .map(|(layout_id, event)| Message::Dashboard { layout_id, event });
         let tick = iced::time::every(Duration::from_millis(16)).map(Message::Tick);
         let debug_terminal = if self.debug_terminal.should_poll() {
             iced::time::every(Duration::from_millis(500))
@@ -2198,6 +2204,7 @@ impl Flowsurface {
 
         Subscription::batch(vec![
             exchange_streams,
+            news,
             sidebar,
             window_events,
             tick,

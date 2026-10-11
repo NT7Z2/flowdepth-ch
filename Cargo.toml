@@ -72,7 +72,7 @@ url.workspace = true
 fern = "0.7.1"
 reqwest.workspace = true
 rodio = { version = "0.22.2", default-features = false, features = [ "playback", "wav" ]}
-tokio = { version = "1.52", default-features = false, features = ["time"] }
+tokio = { version = "1.52", default-features = false, features = ["time", "sync"] }
 gif = "0.14.2"
 image = { version = "0.25.10", default-features = false, features = ["ico"] }
 rfd = { version = "0.15.4", default-features = false, features = ["xdg-portal", "tokio"] }
@@ -84,6 +84,7 @@ arrow-ipc.workspace = true
 arrow-array.workspace = true
 arrow-schema.workspace = true
 bytes = "1.11.1"
+quick-xml = "0.39.4"
 data.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]

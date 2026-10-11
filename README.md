@@ -57,6 +57,7 @@ Windows and macOS beta binaries are not currently signed. Windows SmartScreen ma
 - **Order-flow charts:** footprint views, historical L2 heatmaps, Time & Sales, DOM/ladder, candlesticks, comparisons, volume profiles, and cumulative volume delta.
 - **Adaptive volume bubbles:** configurable clustering of aggressive executions with adaptive thresholds, side/delta coloring, bounded labels, and stable live updates.
 - **Possible Binance iceberg/replenishment detection:** optional markers for evidence of passive absorption on Binance USDⓈ-M perpetuals. The detector is probabilistic, disabled by default, and does not prove that an exchange-native iceberg order exists.
+- **[News Tracker](docs/news-tracker.md):** multi-source crypto headlines, asset/topic filters, source links and explained impact relevance scores, with optional CryptoPanic integration.
 - **Crypto options analytics:** BTC, ETH, and SOL GEX profiles sourced from Deribit, plus independently displayed Derive observed maker flow matched to Deribit contracts. SOL uses the linear USDC option chain.
 - **Persistent market-data cache:** local storage for klines, open interest, trades, and derived bubble summaries with gap detection, deduplication, and invalidation.
 - **Connection recovery:** automatic reconnect, historical gap backfill, bounded retries, stale-request cancellation, and sequence-aware recovery.
