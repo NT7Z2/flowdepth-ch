@@ -52,3 +52,16 @@ CryptoPanic requires credentials and was not included in the live verification.
 Credential setup in the UI, semantic clustering of differently worded events,
 configurable alerts, keyboard feed navigation, and linked chart navigation remain
 possible extensions. They are not part of the current implementation.
+
+## Regression checks
+
+The GEX header is constrained to 28 pixels plus title-bar padding. The rendering
+check also exercises the complete dashboard pane with a populated GEX chart at
+180–960 pixel widths and verifies the title and body heights. Testing the header
+alone previously missed a height-filling responsive widget that hid the chart.
+
+The News Tracker preview consumes the actual automatic price subscription before
+opening any article, verifies that results are stored, and renders its directional
+badges. Unit tests cover filtered background requests, exact-title deduplication,
+and rejection of results from an obsolete publication time. Feed responses no
+longer depend on selecting an article to trigger market-data requests.

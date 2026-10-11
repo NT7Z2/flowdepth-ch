@@ -64,6 +64,7 @@ pub enum Message {
     FetchedGeneration(u64, Batch),
     ReactionAsset(String),
     ReactionRefresh,
+    FeedReactionResult(reaction::Request, Result<Box<reaction::Snapshot>, String>),
     ReactionResult(
         reaction::Request,
         u64,
@@ -92,6 +93,7 @@ pub struct NewsTracker {
     reaction_force: bool,
     reaction_state: reaction::State,
     reaction_history: HashMap<String, reaction::Snapshot>,
+    feed_reactions: HashMap<reaction::Request, Result<Box<reaction::Snapshot>, String>>,
 }
 
 impl NewsTracker {
@@ -117,6 +119,7 @@ impl NewsTracker {
             reaction_force: false,
             reaction_state: reaction::State::Idle,
             reaction_history: HashMap::new(),
+            feed_reactions: HashMap::new(),
         }
     }
 
@@ -135,6 +138,11 @@ impl NewsTracker {
                 && urls.insert(canonical_url(&a.url))
         });
         self.articles.truncate(500);
+        self.feed_reactions.retain(|request, _| {
+            self.articles
+                .iter()
+                .any(|a| a.url == request.article_url && a.published == request.published)
+        });
     }
 
     fn clear_hidden_selection(&mut self) {
@@ -286,6 +294,15 @@ impl NewsTracker {
                 self.reaction_force = true;
                 self.reaction_state = reaction::State::Loading;
             }
+            Message::FeedReactionResult(request, result) => {
+                if self
+                    .articles
+                    .iter()
+                    .any(|a| Self::feed_request(a) == request)
+                {
+                    self.feed_reactions.insert(request, result);
+                }
+            }
             Message::ReactionResult(request, nonce, result) => {
                 let current = self
                     .selected
@@ -333,6 +350,7 @@ impl NewsTracker {
         proxy: Option<exchange::proxy::Proxy>,
     ) -> Subscription<Message> {
         let news = self.feed_subscription(id, window, pane, proxy.clone());
+        let feed_reactions = self.feed_reaction_subscription(id, window, pane, proxy.clone());
         let reaction = self
             .selected
             .as_ref()
@@ -373,7 +391,73 @@ impl NewsTracker {
                 )
             })
             .unwrap_or_else(Subscription::none);
-        Subscription::batch([news, reaction])
+        Subscription::batch([news, reaction, feed_reactions])
+    }
+
+    fn feed_request(article: &Article) -> reaction::Request {
+        reaction::Request {
+            article_url: article.url.clone(),
+            asset: article
+                .assets
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "BTC".into()),
+            published: article.published,
+        }
+    }
+
+    fn feed_requests(&self) -> Vec<reaction::Request> {
+        let mut articles: Vec<_> = self
+            .articles
+            .iter()
+            .filter(|a| a.matches(&self.config))
+            .collect();
+        if self.config.sort_by_impact {
+            articles.sort_by(|a, b| b.impact.cmp(&a.impact).then(b.published.cmp(&a.published)));
+        }
+        let mut titles = HashSet::new();
+        articles
+            .into_iter()
+            .filter(|a| titles.insert(event_key(&a.title)))
+            .map(Self::feed_request)
+            .collect()
+    }
+
+    fn feed_reaction_subscription(
+        &self,
+        id: uuid::Uuid,
+        window: iced::window::Id,
+        pane: iced::widget::pane_grid::Pane,
+        proxy: Option<exchange::proxy::Proxy>,
+    ) -> Subscription<Message> {
+        let requests = self.feed_requests();
+        if self.paused || requests.is_empty() {
+            return Subscription::none();
+        }
+        Subscription::run_with(
+            (id, window, pane, requests, NewsNetwork(proxy)),
+            |context| {
+                let requests = context.3.clone();
+                let network = context.4.clone();
+                iced::futures::stream::unfold(0usize, move |mut index| {
+                    let requests = requests.clone();
+                    let network = network.clone();
+                    async move {
+                        if index == requests.len() {
+                            tokio::time::sleep(Duration::from_secs(60)).await;
+                            index = 0;
+                        }
+                        let request = requests[index].clone();
+                        // Keep automatic history requests bounded and paced across the feed.
+                        tokio::time::sleep(Duration::from_millis(250)).await;
+                        let result = reaction::fetch(&request, &network, false)
+                            .await
+                            .map(Box::new);
+                        Some((Message::FeedReactionResult(request, result), index + 1))
+                    }
+                })
+            },
+        )
     }
 
     fn feed_subscription(
@@ -671,7 +755,14 @@ impl NewsTracker {
                 if !tag.is_empty() {
                     badges = badges.push(badge(tag.to_string(), BadgeKind::Warning));
                 }
-                if let Some(snapshot) = self.reaction_history.get(&article.url)
+                let request = Self::feed_request(article);
+                let snapshot = self
+                    .feed_reactions
+                    .get(&request)
+                    .and_then(|result| result.as_ref().ok())
+                    .map(Box::as_ref)
+                    .or_else(|| self.reaction_history.get(&article.url));
+                if let Some(snapshot) = snapshot
                     && let Some(summary) = reaction::summary(snapshot)
                 {
                     let value = [1, 0, 2]
@@ -683,16 +774,39 @@ impl NewsTracker {
                         .unwrap_or(0.0);
                     badges = badges.push(badge(
                         format!(
-                            "{} {summary}",
+                            "{} {summary}{}",
                             if value < 0.0 {
                                 "↓"
                             } else if value > 0.0 {
                                 "↑"
                             } else {
                                 "→"
+                            },
+                            if article.assets.contains(&snapshot.asset) {
+                                ""
+                            } else {
+                                " · market"
                             }
                         ),
                         BadgeKind::Response(value),
+                    ));
+                } else {
+                    let state = if self
+                        .feed_reactions
+                        .get(&request)
+                        .is_some_and(Result::is_err)
+                    {
+                        "unavailable"
+                    } else if snapshot.is_some() {
+                        "+5m pending"
+                    } else if self.paused {
+                        "paused"
+                    } else {
+                        "loading"
+                    };
+                    badges = badges.push(badge(
+                        format!("{} · price {state}", request.asset),
+                        BadgeKind::Neutral,
                     ));
                 }
                 let headline: Element<_> = row![
@@ -1263,6 +1377,48 @@ mod tests {
             impact: 35,
             reason: String::new(),
         }
+    }
+
+    #[test]
+    fn feed_reaction_requests_exist_without_opening_and_follow_filters() {
+        let now = chrono::Utc::now().timestamp();
+        let mut tracker = NewsTracker::new(Config::default());
+        tracker.update(Message::Fetched(Batch {
+            fetched: now,
+            sources: vec![],
+            articles: vec![
+                Article {
+                    assets: vec!["ETH".into()],
+                    ..article("Ethereum upgrade", "https://example.com/a", now - 1000)
+                },
+                Article {
+                    assets: vec!["ETH".into()],
+                    ..article("Ethereum upgrade", "https://example.com/b", now - 1000)
+                },
+                article("Bitcoin adoption", "https://example.com/c", now - 2000),
+            ],
+        }));
+        assert!(tracker.selected.is_none());
+        let requests = tracker.feed_requests();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].asset, "ETH");
+        tracker.update(Message::FeedReactionResult(
+            requests[0].clone(),
+            Err("unsupported".into()),
+        ));
+        assert!(tracker.feed_reactions.contains_key(&requests[0]));
+        assert!(tracker.selected.is_none());
+        assert!(matches!(tracker.reaction_state, reaction::State::Idle));
+        let mut stale = requests[0].clone();
+        stale.published -= 60;
+        tracker.update(Message::FeedReactionResult(
+            stale.clone(),
+            Err("obsolete".into()),
+        ));
+        assert!(!tracker.feed_reactions.contains_key(&stale));
+        tracker.update(Message::Search("Bitcoin".into()));
+        assert_eq!(tracker.feed_requests().len(), 1);
+        assert_eq!(tracker.feed_requests()[0].asset, "BTC");
     }
 
     #[test]

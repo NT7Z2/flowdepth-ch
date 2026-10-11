@@ -1747,7 +1747,7 @@ impl State {
         is_popout: bool,
         allow_native_popout: bool,
     ) -> Element<'_, Message> {
-        responsive(move |size| -> Element<'_, Message> {
+        container(responsive(move |size| -> Element<'_, Message> {
             let controls = if size.width >= 900.0 && self.modal != Some(Modal::Controls) {
                 self.view_controls(id, panes, maximized, is_popout, allow_native_popout)
             } else {
@@ -1769,7 +1769,9 @@ impl State {
                 .align_y(Alignment::Center)
                 .height(28)
                 .into()
-        })
+        }))
+        .height(28)
+        .width(Length::Fill)
         .into()
     }
 
@@ -3598,8 +3600,64 @@ mod tests {
             .write()
             .unwrap()
             .load_font(std::borrow::Cow::Borrowed(crate::style::AZERET_MONO_BYTES));
-        let state = gex_state(data::chart::gex::Config::default());
-        let (_, id) = pane_grid::State::new(());
+        let mut state = gex_state(data::chart::gex::Config {
+            price_range_percent: 100.0,
+            ..Default::default()
+        });
+        use data::chart::gex::{GexFreshness, GexSignModel, GexSnapshot, GexStrike};
+        use exchange::options::{OptionsProvider, OptionsUnderlying};
+        use std::sync::Arc;
+        if let Content::Gex {
+            chart: Some(chart), ..
+        } = &mut state.content
+        {
+            let strikes = (50..=150)
+                .step_by(5)
+                .map(|strike| GexStrike {
+                    strike: f64::from(strike),
+                    call_gex_1pct: 1.0,
+                    put_gex_1pct: -1.0,
+                    net_gex_1pct: 0.0,
+                    absolute_gamma_1pct: 2.0,
+                    call_open_interest: 1.0,
+                    put_open_interest: 1.0,
+                    expiration_count: 1,
+                    gamma_provenance: data::chart::gex::GexGammaProvenance::Derived,
+                })
+                .collect::<Vec<_>>();
+            chart.set_snapshot(
+                Some(Arc::new(GexSnapshot {
+                    provider: OptionsProvider::Deribit,
+                    underlying: OptionsUnderlying::Btc,
+                    model: GexSignModel::CallPutOiProxy,
+                    expiry_filter: data::chart::gex::GexExpiryFilter::SevenDays,
+                    gamma_source: data::chart::gex::GexGammaSource::BlackScholesDerived,
+                    gamma_provenance: data::chart::gex::GexGammaProvenance::Derived,
+                    source_spot: 100.0,
+                    observed_at: UnixMs::new(1),
+                    calculated_at: UnixMs::new(1),
+                    net_gex_1pct: Some(0.0),
+                    absolute_gex_1pct: 1.0,
+                    call_wall: Some(120.0),
+                    put_wall: Some(80.0),
+                    gamma_flip: Some(95.0),
+                    intrinsic_stress: Default::default(),
+                    gamma_vega: Default::default(),
+                    strikes: strikes.into(),
+                    expiry_strikes: Arc::default(),
+                    scenario_curve: Arc::default(),
+                    scale_p95: 2.0,
+                    proxy: None,
+                })),
+                GexFreshness::Fresh,
+                None,
+            );
+        }
+        let (grid, id) = pane_grid::State::new(());
+        let main_window = Window::new(window::Id::unique());
+        let handles =
+            exchange::adapter::AdapterHandles::spawn_venues(&reqwest::Client::new(), [], None);
+        let (tickers, _) = TickersTable::new(handles, data::MarketMetadata::default());
         let theme: Theme = data::Theme::default().into();
         std::fs::create_dir_all("target/gex-layout").unwrap();
         for width in [180, 220, 320, 480, 760, 960] {
@@ -3657,6 +3715,77 @@ mod tests {
                 theme.palette().background.base.color,
             );
             std::fs::write(format!("target/gex-layout/header-{width}x32.rgba"), bytes).unwrap();
+            for height in [420, 700] {
+                let bounds =
+                    iced::Rectangle::with_size(iced::Size::new(width as f32, height as f32));
+                renderer.reset(bounds);
+                let mut full: Element<'_, Message> = pane_grid::PaneGrid::new(&grid, |id, _, _| {
+                    state.view(
+                        id,
+                        2,
+                        false,
+                        false,
+                        main_window.id,
+                        &main_window,
+                        UserTimezone::Local,
+                        &tickers,
+                        true,
+                    )
+                })
+                .into();
+                let mut tree = Tree::new(full.as_widget());
+                tree.diff(full.as_widget_mut());
+                let node = full.as_widget_mut().layout(
+                    &mut tree,
+                    &renderer,
+                    &layout::Limits::new(iced::Size::ZERO, bounds.size()),
+                );
+                let pane_node = &node.children()[0];
+                assert!(
+                    pane_node.children()[0].size().height <= 32.0,
+                    "GEX title consumed the chart height"
+                );
+                assert!(
+                    pane_node.children()[1].size().height >= height as f32 - 40.0,
+                    "GEX chart has no usable body height"
+                );
+                let mut bus = iced_core::shell::Bus::new();
+                let mut shell =
+                    iced_core::Shell::new(&window, iced_core::shell::Waker::noop(), &mut bus);
+                full.as_widget_mut().update(
+                    &mut tree,
+                    &iced::Event::Window(iced::window::Event::RedrawRequested(
+                        std::time::Instant::now(),
+                    )),
+                    Layout::new(&node),
+                    iced::mouse::Cursor::Unavailable,
+                    &renderer,
+                    &mut shell,
+                    &bounds,
+                );
+                full.as_widget().draw(
+                    &tree,
+                    &mut renderer,
+                    &theme,
+                    &iced::advanced::renderer::Style {
+                        text_color: theme.palette().background.base.text,
+                    },
+                    Layout::new(&node),
+                    iced::mouse::Cursor::Unavailable,
+                    &bounds,
+                );
+                let bytes = Headless::screenshot(
+                    &mut renderer,
+                    iced::Size::new(width, height),
+                    1.0,
+                    theme.palette().background.base.color,
+                );
+                std::fs::write(
+                    format!("target/gex-layout/full-pane-{width}x{height}.rgba"),
+                    bytes,
+                )
+                .unwrap();
+            }
         }
     }
 

@@ -100,6 +100,43 @@ fn render_news_tracker_preview() {
     );
     snapshot(&tracker, &mut renderer, 960, 700, "desktop");
     snapshot(&tracker, &mut renderer, 480, 420, "pane");
+    // Exercise the actual automatic subscription before opening any article.
+    runtime.block_on(async {
+        use iced::futures::StreamExt;
+        let (_, pane) = iced::widget::pane_grid::State::new(());
+        let subscription = tracker.feed_reaction_subscription(
+            uuid::Uuid::new_v4(),
+            iced::window::Id::unique(),
+            pane,
+            None,
+        );
+        let recipe = iced::advanced::subscription::into_recipes(subscription)
+            .pop()
+            .unwrap();
+        let mut stream = recipe.stream(Box::pin(iced::futures::stream::pending()));
+        for _ in 0..3 {
+            let message = tokio::time::timeout(Duration::from_secs(90), stream.next())
+                .await
+                .unwrap()
+                .unwrap();
+            tracker.update(message);
+        }
+    });
+    assert!(tracker.selected.is_none());
+    assert_eq!(tracker.feed_reactions.len(), 3);
+    assert!(tracker.feed_reactions.values().any(|result| {
+        result
+            .as_ref()
+            .is_ok_and(|snapshot| reaction::summary(snapshot).is_some())
+    }));
+    snapshot(&tracker, &mut renderer, 480, 420, "automatic-price-feed");
+    snapshot(
+        &tracker,
+        &mut renderer,
+        320,
+        400,
+        "narrow-automatic-price-feed",
+    );
     tracker.update(Message::Select(tracker.articles[0].url.clone()));
     let article = tracker.articles[0].clone();
     let request = reaction::Request {

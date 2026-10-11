@@ -140,3 +140,17 @@ price response use distinct badges. Price responses show the asset and elapsed
 horizon with green/red direction; asset badges use the accent color. Badges wrap
 to fit narrow panes and opening a row still shows the complete source and
 market response details. Comfortable mode increases text size and spacing.
+
+### Automatic feed price response
+
+The feed requests observed price response in the background without requiring
+an article to be opened. Requests follow the filtered feed order and use the
+first detected asset; headlines without a detected asset use BTC, explicitly
+marked as a market comparison. A directional badge displays the asset, horizon,
+and observed percentage movement as soon as data arrives. Loading, paused,
+pending +5-minute observations, and unavailable market data are shown explicitly.
+
+Automatic requests are sequential and paced, share a bounded market-data cache,
+and recheck the queue after a 60-second interval. Pause stops the automatic feed
+requests. Detail asset selection remains independent of the feed calculations.
+The feed reports observed movement after publication, not proof of causation.

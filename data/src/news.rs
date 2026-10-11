@@ -31,7 +31,8 @@ pub struct Article {
 }
 
 pub const ASSETS: &[&str] = &[
-    "BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "AVAX", "LINK", "SUI", "USDT", "USDC", "HYPE",
+    "BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "AVAX", "LINK", "SUI", "USDT", "USDC",
+    "HYPE", "ZEC", "XMR", "LTC",
 ];
 
 pub fn normalize_asset(value: &str) -> String {
@@ -47,6 +48,9 @@ pub fn normalize_asset(value: &str) -> String {
         "DOGECOIN" => "DOGE",
         "AVALANCHE" => "AVAX",
         "HYPERLIQUID" => "HYPE",
+        "ZCASH" => "ZEC",
+        "MONERO" => "XMR",
+        "LITECOIN" => "LTC",
         _ => upper,
     };
     if ASSETS.contains(&symbol) {
@@ -170,6 +174,9 @@ pub fn classify(title: &str, supplied_assets: Vec<String>) -> (Vec<String>, Stri
         ("USDT", &["tether", "usdt"][..]),
         ("USDC", &["usdc"][..]),
         ("HYPE", &["hyperliquid"][..]),
+        ("ZEC", &["zcash", "zec"][..]),
+        ("XMR", &["monero", "xmr"][..]),
+        ("LTC", &["litecoin", "ltc"][..]),
     ] {
         if names.iter().any(|name| words.contains(name))
             || title
@@ -364,6 +371,11 @@ mod tests {
     #[test]
     fn filters_normalize_names_pairs_and_handle_time_and_macro() {
         assert_eq!(asset_filter("Ethereum BTCUSDT ETH/USDT"), ["BTC", "ETH"]);
+        assert_eq!(asset_filter("Zcash Monero Litecoin"), ["LTC", "XMR", "ZEC"]);
+        assert_eq!(
+            classify("How Zcash plans to protect keys", vec![]).0,
+            ["ZEC"]
+        );
         let article = Article {
             title: "Fed cuts rates today".into(),
             url: String::new(),

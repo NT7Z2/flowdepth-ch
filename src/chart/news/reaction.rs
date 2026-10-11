@@ -93,7 +93,7 @@ pub async fn fetch(
         .build()
         .map_err(|_| "Market data connection could not be initialized.")?;
     let snapshot = fetch_with_client(&client, request, now).await?;
-    if cache.len() >= 64
+    if cache.len() >= 512
         && let Some(oldest) = cache
             .iter()
             .min_by_key(|(_, (loaded, _))| *loaded)
