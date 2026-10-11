@@ -154,3 +154,16 @@ Automatic requests are sequential and paced, share a bounded market-data cache,
 and recheck the queue after a 60-second interval. Pause stops the automatic feed
 requests. Detail asset selection remains independent of the feed calculations.
 The feed reports observed movement after publication, not proof of causation.
+
+## Visual controls
+
+Refresh, pause/resume, filters, and reset use compact pictographic controls with
+hover tooltips. Pause and open filters have an active highlight; unavailable
+refresh actions are dimmed. Source availability remains visible as a count.
+Back navigation and external source links combine an icon with a short label.
+
+Feed metadata uses publisher/category pictograms and colored asset symbols,
+with fewer rectangular surfaces. Price responses use directional chart icons
+and green/red coloring alongside the asset, horizon, and percentage. Symbols
+and pictograms are embedded SVG assets and remain available offline. The toolbar,
+watchlist shortcuts, and metadata wrap to fit narrow panes.

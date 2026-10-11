@@ -1,4 +1,6 @@
 mod reaction;
+mod visual;
+use visual::Icon as NewsIcon;
 
 use crate::widget::pick_list;
 use data::news::{Article, Config, asset_filter, classify, evidence};
@@ -527,6 +529,7 @@ impl NewsTracker {
             format!("{healthy}/{configured} sources")
         };
         let transport = row![
+            visual::icon(NewsIcon::Clock, 14),
             text(if self.loading {
                 "Updating..."
             } else if self.paused {
@@ -535,22 +538,36 @@ impl NewsTracker {
                 "Auto 120s"
             })
             .size(11),
-            button("Refresh").on_press_maybe((!self.loading).then_some(Message::Refresh)),
-            checkbox(self.paused)
-                .label("Pause")
-                .on_toggle(Message::Pause),
+            visual::action(
+                NewsIcon::Refresh,
+                "Refresh news",
+                (!self.loading).then_some(Message::Refresh),
+                false
+            ),
+            visual::action(
+                if self.paused {
+                    NewsIcon::Play
+                } else {
+                    NewsIcon::Pause
+                },
+                if self.paused {
+                    "Resume automatic updates"
+                } else {
+                    "Pause automatic updates"
+                },
+                Some(Message::Pause(!self.paused)),
+                self.paused
+            ),
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
+        let controls = row![
+            transport,
+            visual::named_action(NewsIcon::News, health, Message::ToggleSources)
         ]
         .spacing(8)
-        .align_y(iced::Alignment::Center);
-        let source_button = button(text(health).size(11)).on_press(Message::ToggleSources);
-        let controls: Element<_> = if width < 420.0 {
-            column![transport, source_button].spacing(5).into()
-        } else {
-            row![transport, source_button]
-                .spacing(8)
-                .align_y(iced::Alignment::Center)
-                .into()
-        };
+        .align_y(iced::Alignment::Center)
+        .wrap();
         let selected = self
             .selected
             .as_ref()
@@ -560,7 +577,12 @@ impl NewsTracker {
             let mut panel = column![
                 row![
                     text("News sources").size(16),
-                    button("Back").on_press(Message::ToggleSources)
+                    visual::action(
+                        NewsIcon::Back,
+                        "Back to news feed",
+                        Some(Message::ToggleSources),
+                        false
+                    )
                 ]
                 .spacing(8)
             ]
@@ -577,7 +599,12 @@ impl NewsTracker {
                     .unwrap_or("none yet".into());
                 panel = panel.push(
                     column![
-                        text(&source.name).size(14),
+                        row![
+                            visual::icon(NewsIcon::News, 18),
+                            text(&source.name).size(14)
+                        ]
+                        .spacing(6)
+                        .align_y(iced::Alignment::Center),
                         text(&source.status).size(12),
                         text(format!("Last success: {success}")).size(11)
                     ]
@@ -594,10 +621,23 @@ impl NewsTracker {
             body = body.push(self.detail(article).height(Length::Fill));
         } else {
             let search = row![
+                container(visual::icon(NewsIcon::Search, 16))
+                    .height(32)
+                    .align_y(iced::Alignment::Center),
                 text_input("Search headlines or topics", &self.config.search)
                     .on_input(Message::Search),
-                button("Filters").on_press(Message::ToggleFilters),
-                button("Reset").on_press(Message::ResetFilters)
+                visual::action(
+                    NewsIcon::Filter,
+                    "Show or hide news filters",
+                    Some(Message::ToggleFilters),
+                    self.filters_open
+                ),
+                visual::action(
+                    NewsIcon::Reset,
+                    "Reset all news filters",
+                    Some(Message::ResetFilters),
+                    false
+                )
             ]
             .spacing(6);
             body = body.push(search);
@@ -636,22 +676,32 @@ impl NewsTracker {
                 let selected_assets = asset_filter(&self.config.assets);
                 for symbol in ["BTC", "ETH", "SOL", "LINK"] {
                     let active = selected_assets.iter().any(|s| s == symbol);
+                    let selection_mark: Element<'_, Message> = if active {
+                        visual::icon(NewsIcon::Check, 12).into()
+                    } else {
+                        iced::widget::space().width(12).into()
+                    };
                     assets = assets.push(
                         button(
-                            text(if active {
-                                format!("{symbol} x")
-                            } else {
-                                format!("+ {symbol}")
-                            })
-                            .size(11),
+                            row![
+                                visual::asset(symbol, 20),
+                                text(symbol).size(11),
+                                selection_mark
+                            ]
+                            .spacing(5)
+                            .align_y(iced::Alignment::Center),
                         )
-                        .on_press(Message::AssetToggled(symbol.into())),
+                        .padding([5, 6])
+                        .on_press(Message::AssetToggled(symbol.into()))
+                        .style(move |theme, status| {
+                            crate::style::button::transparent(theme, status, active)
+                        }),
                     );
                 }
                 let filters = column![
                     text_input("Watchlist: BTC, Ethereum, SOLUSDT...", &self.config.assets)
                         .on_input(Message::Assets),
-                    assets,
+                    assets.wrap(),
                     row![
                         pick_list(sources, Some(source), Message::Source).width(Length::Fill),
                         pick_list(categories, Some(category), Message::Category)
@@ -715,10 +765,11 @@ impl NewsTracker {
             ]
             .spacing(8);
             if !self.pending.is_empty() {
-                info = info.push(
-                    button(text(format!("{} new", self.pending.len())).size(11))
-                        .on_press(Message::RevealNew),
-                );
+                info = info.push(visual::named_action(
+                    NewsIcon::New,
+                    format!("{} new", self.pending.len()),
+                    Message::RevealNew,
+                ));
             }
             body = body.push(info);
             let mut tape = column![].spacing(4);
@@ -774,14 +825,7 @@ impl NewsTracker {
                         .unwrap_or(0.0);
                     badges = badges.push(badge(
                         format!(
-                            "{} {summary}{}",
-                            if value < 0.0 {
-                                "↓"
-                            } else if value > 0.0 {
-                                "↑"
-                            } else {
-                                "→"
-                            },
+                            "{summary}{}",
                             if article.assets.contains(&snapshot.asset) {
                                 ""
                             } else {
@@ -820,10 +864,15 @@ impl NewsTracker {
                     column![
                         text(&article.title).size(if self.config.comfortable { 14 } else { 13 }),
                         badges.wrap(),
-                        text(timestamp)
-                            .size(10)
-                            .font(crate::style::AZERET_MONO)
-                            .style(palette_text)
+                        row![
+                            visual::icon(NewsIcon::Clock, 11),
+                            text(timestamp)
+                                .size(10)
+                                .font(crate::style::AZERET_MONO)
+                                .style(palette_text)
+                        ]
+                        .spacing(4)
+                        .align_y(iced::Alignment::Center)
                     ]
                     .spacing(if self.config.comfortable { 6 } else { 4 })
                     .width(Length::Fill)
@@ -858,7 +907,11 @@ impl NewsTracker {
                 tape = tape.push(
                     column![
                         text(message).size(13),
-                        button("Reset filters").on_press(Message::ResetFilters)
+                        visual::named_action(
+                            NewsIcon::Reset,
+                            "Reset filters".into(),
+                            Message::ResetFilters
+                        )
                     ]
                     .spacing(8),
                 );
@@ -897,7 +950,11 @@ impl NewsTracker {
             row![
                 relevance(article.impact),
                 text(format!("Relevance | {}", article.category)).size(12),
-                button(text("Source").size(11)).on_press(Message::Open(article.url.clone()))
+                visual::named_action(
+                    NewsIcon::Link,
+                    "Source".into(),
+                    Message::Open(article.url.clone())
+                )
             ]
             .spacing(8),
             text(if article.assets.is_empty() {
@@ -926,9 +983,12 @@ impl NewsTracker {
                         Some(self.reaction_asset.clone()),
                         Message::ReactionAsset
                     ),
-                    button("Reload").on_press_maybe(
+                    visual::action(
+                        NewsIcon::Refresh,
+                        "Reload historical prices",
                         (!matches!(self.reaction_state, reaction::State::Loading))
-                            .then_some(Message::ReactionRefresh)
+                            .then_some(Message::ReactionRefresh),
+                        false
                     )
                 ]
                 .spacing(8),
@@ -960,14 +1020,15 @@ impl NewsTracker {
                 .ok()
                 .and_then(|u| u.host_str().map(str::to_owned))
                 .unwrap_or_default();
-            content = content.push(
-                button(text(format!("Open {} | {domain}", related.source)).size(12))
-                    .on_press(Message::Open(related.url.clone())),
-            );
+            content = content.push(visual::named_action(
+                NewsIcon::Link,
+                format!("{} · {domain}", related.source),
+                Message::Open(related.url.clone()),
+            ));
         }
         container(
             column![
-                button("Back to feed / Close").on_press(Message::CloseDetail),
+                visual::named_action(NewsIcon::Back, "Back to feed".into(), Message::CloseDetail),
                 scrollable(content).height(Length::Fill)
             ]
             .spacing(10)
@@ -988,41 +1049,57 @@ enum BadgeKind {
     Response(f64),
 }
 
+fn badge_color(theme: &iced::Theme, kind: BadgeKind) -> iced::Color {
+    let palette = theme.palette();
+    match kind {
+        BadgeKind::Warning => palette.warning.base.color,
+        BadgeKind::Response(value) if value > 0.0 => palette.success.base.color,
+        BadgeKind::Response(value) if value < 0.0 => palette.danger.base.color,
+        BadgeKind::Category => palette.background.weak.text,
+        _ => palette.background.base.text,
+    }
+}
+
 fn badge(label: String, kind: BadgeKind) -> Element<'static, Message> {
-    container(text(label).size(10))
-        .padding([3, 7])
-        .style(move |theme: &iced::Theme| {
-            let palette = theme.palette();
-            let color = match kind {
-                BadgeKind::Asset => palette.primary.base.color,
-                BadgeKind::Warning => palette.warning.base.color,
-                BadgeKind::Response(value) if value > 0.0 => palette.success.base.color,
-                BadgeKind::Response(value) if value < 0.0 => palette.danger.base.color,
-                BadgeKind::Source => palette.background.base.text,
-                _ => palette.background.weak.text,
+    let picture = match kind {
+        BadgeKind::Asset => visual::asset(&label, 16),
+        _ => {
+            let symbol = match kind {
+                BadgeKind::Source => NewsIcon::News,
+                BadgeKind::Category => visual::category(&label),
+                BadgeKind::Warning => NewsIcon::Warning,
+                BadgeKind::Response(value) if value > 0.0 => NewsIcon::Up,
+                BadgeKind::Response(value) if value < 0.0 => NewsIcon::Down,
+                BadgeKind::Response(_) => NewsIcon::Flat,
+                _ => NewsIcon::Clock,
             };
-            iced::widget::container::Style {
-                text_color: Some(color),
-                background: Some(
-                    color
-                        .scale_alpha(
-                            if matches!(kind, BadgeKind::Asset | BadgeKind::Response(_)) {
-                                0.14
-                            } else {
-                                0.07
-                            },
-                        )
-                        .into(),
-                ),
-                border: iced::Border {
-                    color: color.scale_alpha(0.25),
-                    width: 1.0,
-                    radius: 4.0.into(),
-                },
+            visual::icon(symbol, 14)
+                .style(move |theme: &iced::Theme, _| iced::widget::svg::Style {
+                    color: Some(badge_color(theme, kind)),
+                })
+                .into()
+        }
+    };
+    container(
+        row![picture, text(label).size(10)]
+            .spacing(4)
+            .align_y(iced::Alignment::Center),
+    )
+    .padding([3, 5])
+    .style(move |theme: &iced::Theme| {
+        let color = badge_color(theme, kind);
+        iced::widget::container::Style {
+            text_color: Some(color),
+            background: matches!(kind, BadgeKind::Response(_) | BadgeKind::Warning)
+                .then_some(color.scale_alpha(0.14).into()),
+            border: iced::Border {
+                radius: 5.0.into(),
                 ..Default::default()
-            }
-        })
-        .into()
+            },
+            ..Default::default()
+        }
+    })
+    .into()
 }
 
 fn relevance(score: u8) -> iced::widget::Text<'static> {

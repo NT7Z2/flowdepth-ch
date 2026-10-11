@@ -65,3 +65,17 @@ opening any article, verifies that results are stored, and renders its direction
 badges. Unit tests cover filtered background requests, exact-title deduplication,
 and rejection of results from an obsolete publication time. Feed responses no
 longer depend on selecting an article to trigger market-data requests.
+
+## Icon-based presentation
+
+The News Tracker now replaces conventional text command buttons with compact
+SVG controls. Tooltips identify refresh, pause/resume, filters, and reset.
+Persistent text identifies update state and source availability. Back and source
+navigation retain short labels alongside their icons. Selected watchlist assets
+show their symbol and a checkmark.
+
+Embedded crypto symbols, category pictograms, clock icons, and directional chart
+icons give metadata a visual hierarchy. Neutral metadata no longer resembles a
+row of bordered buttons. Observed returns retain their signed numeric value and
+measurement horizon, so their meaning does not depend on color alone. Existing
+preview checks cover the icon toolbar and wrapped metadata at 320–960 pixels.
