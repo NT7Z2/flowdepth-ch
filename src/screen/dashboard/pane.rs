@@ -58,6 +58,7 @@ pub enum Effect {
     RequestFetch(Vec<FetchSpec>),
     SwitchTickersInGroup(TickerInfo),
     FocusWidget(iced::widget::Id),
+    ScrollNews(iced::widget::Id),
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -126,6 +127,7 @@ pub enum Event {
     StreamModifierChanged(modal::stream::Message),
     ComparisonChartInteraction(super::chart::comparison::Message),
     GexChartInteraction(crate::chart::gex::Message),
+    NewsInteraction(crate::chart::news::Message),
     GexAssetSelected(GexChartAsset),
     HeatmapShaderInteraction(crate::widget::chart::heatmap::Message),
     MiniTickersListInteraction(modal::pane::mini_tickers_list::Message),
@@ -189,6 +191,18 @@ pub struct State {
 }
 
 impl State {
+    pub fn news_subscription(
+        &self,
+        window: window::Id,
+        pane: pane_grid::Pane,
+        proxy: Option<exchange::proxy::Proxy>,
+    ) -> iced::Subscription<crate::chart::news::Message> {
+        match &self.content {
+            Content::News(news) => news.subscription(self.id, window, pane, proxy),
+            _ => iced::Subscription::none(),
+        }
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -206,7 +220,7 @@ impl State {
             link_group,
             ..Default::default()
         };
-        if matches!(state.content, Content::Gex { .. }) {
+        if matches!(state.content, Content::Gex { .. } | Content::News(_)) {
             state.streams = ResolvedStream::Ready(Vec::new());
             state.reconcile_gex_liquidity_stream();
         }
@@ -214,7 +228,7 @@ impl State {
     }
 
     pub fn stream_pair(&self) -> Option<TickerInfo> {
-        if matches!(self.content, Content::Gex { .. }) {
+        if matches!(self.content, Content::Gex { .. } | Content::News(_)) {
             return None;
         }
         self.streams.find_ready_map(|stream| match stream {
@@ -225,7 +239,7 @@ impl State {
     }
 
     pub fn stream_pair_kind(&self) -> Option<StreamPairKind> {
-        if matches!(self.content, Content::Gex { .. }) {
+        if matches!(self.content, Content::Gex { .. } | Content::News(_)) {
             return None;
         }
         let ready_streams = self.streams.ready_iter()?;
@@ -434,6 +448,13 @@ impl State {
             self.settings.tick_multiply = None;
         }
 
+        if kind == ContentKind::NewsTracker {
+            if !matches!(self.content, Content::News(_)) {
+                self.content = Content::placeholder(kind);
+            }
+            self.streams = ResolvedStream::Ready(Vec::new());
+            return Vec::new();
+        }
         let base_ticker = tickers[0];
         if kind == ContentKind::GexChart {
             let existing_reference = match &self.content {
@@ -738,7 +759,9 @@ impl State {
                     (content, streams)
                 }
                 ContentKind::Starter => unreachable!(),
-                ContentKind::GexChart => unreachable!("handled before stream planning"),
+                ContentKind::GexChart | ContentKind::NewsTracker => {
+                    unreachable!("handled before stream planning")
+                }
             }
         };
 
@@ -971,114 +994,8 @@ impl State {
             })]
         };
 
-        if let Content::Gex {
-            underlying,
-            chart,
-            liquidity_reference,
-            ..
-        } = &self.content
-        {
-            let gex_source = match underlying {
-                exchange::options::OptionsUnderlying::Gld => "GEX · QuantWheel GLD",
-                exchange::options::OptionsUnderlying::Ndx => "GEX · QuantWheel NDX",
-                _ => "GEX · Deribit",
-            };
-            let reference = chart
-                .as_ref()
-                .and_then(GexChart::liquidity_reference)
-                .or(*liquidity_reference);
-            let proxy_reference_required = matches!(
-                underlying,
-                exchange::options::OptionsUnderlying::Gld
-                    | exchange::options::OptionsUnderlying::Ndx
-            ) && reference.is_none();
-            let reference_content: Element<'_, Message> = if let Some(reference) = reference {
-                let (symbol, _) = reference.ticker.display_symbol_and_type();
-                row![
-                    icon_text(style::venue_icon(reference.exchange().venue()), 13)
-                        .align_y(Alignment::Center),
-                    text(format!("Liquidity · {} · {symbol}", reference.exchange()))
-                        .size(crate::style::text_size::SMALL)
-                        .wrapping(iced::widget::text::Wrapping::None),
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .into()
-            } else if proxy_reference_required {
-                let target = match underlying {
-                    exchange::options::OptionsUnderlying::Ndx => "NQ/NAS100",
-                    _ => "XAU/XAUT",
-                };
-                row![
-                    text("!").size(crate::style::text_size::SECTION),
-                    text(format!("Required · select {target} market"))
-                        .size(crate::style::text_size::SMALL),
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .into()
-            } else {
-                row![
-                    text("+").size(crate::style::text_size::SECTION),
-                    text("Choose liquidity market").size(crate::style::text_size::SMALL),
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .into()
-            };
-            let reference_button = button(reference_content)
-                .on_press(Message::PaneEvent(
-                    id,
-                    Event::ShowModal(Modal::GexLiquidityReference(
-                        MiniPanel::for_options_underlying(*underlying),
-                    )),
-                ))
-                .style(|theme, status| {
-                    style::button::modifier(
-                        theme,
-                        status,
-                        !matches!(self.modal, Some(Modal::GexLiquidityReference(_))),
-                    )
-                })
-                .height(widget::PANE_CONTROL_BTN_HEIGHT);
-            let reference_button: Element<'_, Message> = if proxy_reference_required {
-                let explanation = match underlying {
-                    exchange::options::OptionsUnderlying::Ndx => {
-                        "Required for NQ: choose an NQ/NAS100 market whose live price is used to convert QuantWheel NDX option strikes."
-                    }
-                    _ => {
-                        "Required for XAU: choose an XAU/XAUT market whose live price is used to convert QuantWheel GLD option strikes."
-                    }
-                };
-                iced::widget::tooltip(
-                    reference_button,
-                    container(text(explanation))
-                        .style(style::tooltip)
-                        .padding(8),
-                    tooltip::Position::Bottom,
-                )
-                .delay(widget::DEFAULT_TOOLTIP_DELAY)
-                .into()
-            } else {
-                reference_button.into()
-            };
-            top_left_buttons = top_left_buttons.push(
-                row![
-                    pick_list(
-                        GexChartAsset::ALL,
-                        Some(GexChartAsset::from_underlying(*underlying)),
-                        move |asset| Message::PaneEvent(id, Event::GexAssetSelected(asset)),
-                    )
-                    .text_size(crate::style::text_size::SECTION)
-                    .width(Length::Fixed(82.0)),
-                    text(gex_source)
-                        .size(crate::style::text_size::SMALL)
-                        .align_y(Alignment::Center),
-                    reference_button,
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center),
-            );
+        if matches!(self.content, Content::News(_)) {
+            top_left_buttons = row![text("News Tracker").size(13)];
         } else if let Some(kind) = self.stream_pair_kind() {
             let (base_ti, extra) = match kind {
                 StreamPairKind::MultiSource(list) => (list[0], list.len().saturating_sub(1)),
@@ -1223,6 +1140,9 @@ impl State {
         };
 
         let body = match &self.content {
+            Content::News(news) => news
+                .view()
+                .map(move |message| Message::PaneEvent(id, Event::NewsInteraction(message))),
             Content::Starter => {
                 let base: Element<_> = widget::toast::Manager::new(
                     center(
@@ -1788,6 +1708,20 @@ impl State {
             }
         };
 
+        if matches!(self.content, Content::Gex { .. }) {
+            return content.title_bar(
+                pane_grid::TitleBar::new(self.view_gex_title(
+                    id,
+                    panes,
+                    maximized,
+                    window != main_window.id,
+                    allow_native_popout,
+                ))
+                .padding([2, 0])
+                .style(style::pane_title_bar),
+            );
+        }
+
         let title_bar = pane_grid::TitleBar::new(
             top_left_buttons
                 .padding(padding::left(4))
@@ -1805,6 +1739,157 @@ impl State {
         })
     }
 
+    fn view_gex_title(
+        &self,
+        id: pane_grid::Pane,
+        panes: usize,
+        maximized: bool,
+        is_popout: bool,
+        allow_native_popout: bool,
+    ) -> Element<'_, Message> {
+        container(responsive(move |size| -> Element<'_, Message> {
+            let controls = if size.width >= 900.0 && self.modal != Some(Modal::Controls) {
+                self.view_controls(id, panes, maximized, is_popout, allow_native_popout)
+            } else {
+                button(text("...").size(crate::style::text_size::EMPHASIS))
+                    .on_press(Message::PaneEvent(id, Event::ShowModal(Modal::Controls)))
+                    .style(move |theme, status| {
+                        style::button::transparent(
+                            theme,
+                            status,
+                            self.modal == Some(Modal::Controls)
+                                || self.modal == Some(Modal::Settings),
+                        )
+                    })
+                    .into()
+            };
+            row![self.view_gex_header(id, size.width), controls]
+                .spacing(6)
+                .padding([0, 4])
+                .align_y(Alignment::Center)
+                .height(28)
+                .into()
+        }))
+        .height(28)
+        .width(Length::Fill)
+        .into()
+    }
+
+    fn view_gex_header(&self, id: pane_grid::Pane, width: f32) -> Element<'_, Message> {
+        let Content::Gex {
+            underlying,
+            chart,
+            liquidity_reference,
+            ..
+        } = &self.content
+        else {
+            return row![].into();
+        };
+        let reference = chart
+            .as_ref()
+            .and_then(GexChart::liquidity_reference)
+            .or(*liquidity_reference);
+        let required = matches!(
+            underlying,
+            exchange::options::OptionsUnderlying::Gld | exchange::options::OptionsUnderlying::Ndx
+        ) && reference.is_none();
+        let target = if *underlying == exchange::options::OptionsUnderlying::Ndx {
+            "NQ/NAS100"
+        } else {
+            "XAU/XAUT"
+        };
+        let (full_label, short_label) = if let Some(reference) = reference {
+            let (symbol, _) = reference.ticker.display_symbol_and_type();
+            (
+                format!("Liquidity · {} · {symbol}", reference.exchange()),
+                symbol.to_string(),
+            )
+        } else if required {
+            (
+                format!("Required · select {target} market"),
+                format!("! {target}"),
+            )
+        } else {
+            (
+                "Choose liquidity market".to_string(),
+                "+ Liquidity".to_string(),
+            )
+        };
+        let label = if width >= 760.0 {
+            full_label.clone()
+        } else if width >= 370.0 {
+            format!("Liquidity · {short_label}")
+        } else if width >= 220.0 {
+            short_label
+        } else {
+            "Liq".to_string()
+        };
+        let reference_button = button(
+            container(
+                text(label)
+                    .size(crate::style::text_size::SMALL)
+                    .wrapping(iced::widget::text::Wrapping::None),
+            )
+            .width(Length::Fill)
+            .clip(true),
+        )
+        .width(Length::Fill)
+        .height(widget::PANE_CONTROL_BTN_HEIGHT)
+        .on_press(Message::PaneEvent(
+            id,
+            Event::ShowModal(Modal::GexLiquidityReference(
+                MiniPanel::for_options_underlying(*underlying),
+            )),
+        ))
+        .style(move |theme, status| {
+            style::button::modifier(
+                theme,
+                status,
+                !matches!(self.modal, Some(Modal::GexLiquidityReference(_))),
+            )
+        });
+        let explanation = if required {
+            format!("{full_label}. Its live price is required to convert option strikes.")
+        } else {
+            full_label
+        };
+        let reference_button = iced::widget::tooltip(
+            reference_button,
+            container(text(explanation))
+                .style(style::tooltip)
+                .padding(8),
+            tooltip::Position::Bottom,
+        )
+        .delay(widget::DEFAULT_TOOLTIP_DELAY);
+        let mut header = row![]
+            .spacing(6)
+            .align_y(Alignment::Center)
+            .width(Length::Fill);
+        if width >= 300.0 {
+            header = header.push(link_group_button(id, self.link_group, |id| {
+                Message::PaneEvent(id, Event::ShowModal(Modal::LinkGroup))
+            }));
+        }
+        header = header.push(
+            pick_list(
+                GexChartAsset::ALL,
+                Some(GexChartAsset::from_underlying(*underlying)),
+                move |asset| Message::PaneEvent(id, Event::GexAssetSelected(asset)),
+            )
+            .text_size(crate::style::text_size::SECTION)
+            .width(if width >= 300.0 { 82 } else { 64 }),
+        );
+        if width >= 600.0 {
+            let source = match underlying {
+                exchange::options::OptionsUnderlying::Gld => "GEX · QuantWheel GLD",
+                exchange::options::OptionsUnderlying::Ndx => "GEX · QuantWheel NDX",
+                _ => "GEX · Deribit",
+            };
+            header = header.push(text(source).size(crate::style::text_size::SMALL));
+        }
+        header.push(reference_button).into()
+    }
+
     pub fn update(&mut self, msg: Event) -> Option<Effect> {
         match msg {
             Event::ShowModal(requested_modal) => {
@@ -1813,7 +1898,25 @@ impl State {
             Event::HideModal => {
                 self.modal = None;
             }
+            Event::NewsInteraction(message) => {
+                if let Content::News(news) = &mut self.content {
+                    let reveal = matches!(message, crate::chart::news::Message::RevealNew);
+                    news.update(message);
+                    if reveal {
+                        return Some(Effect::ScrollNews(news.scroll_id.clone()));
+                    }
+                }
+            }
             Event::ContentSelected(kind) => {
+                if kind == ContentKind::NewsTracker {
+                    self.content = Content::placeholder(kind);
+                    self.settings = Settings::default();
+                    self.status = Status::Ready;
+                    self.link_group = None;
+                    self.streams = ResolvedStream::Ready(Vec::new());
+                    self.modal = None;
+                    return Some(Effect::RefreshStreams);
+                }
                 if kind == ContentKind::GexChart {
                     let underlying = exchange::options::OptionsUnderlying::Btc;
                     self.content = Content::Gex {
@@ -2359,7 +2462,7 @@ impl State {
 
         let show_modal = |modal: Modal| Message::PaneEvent(pane, Event::ShowModal(modal));
 
-        if !treat_as_starter {
+        if !treat_as_starter && !matches!(self.content, Content::News(_)) {
             buttons = buttons.push(button_with_tooltip(
                 icon_text(Icon::Cog, 12),
                 show_modal(Modal::Settings),
@@ -2634,7 +2737,7 @@ impl State {
             Content::Ladder(panel) => panel
                 .as_mut()
                 .and_then(|p| p.invalidate(Some(now)).map(Action::Panel)),
-            Content::Starter => None,
+            Content::Starter | Content::News(_) => None,
             Content::Comparison(chart) => chart
                 .as_mut()
                 .and_then(|c| c.invalidate(Some(now)).map(Action::Chart)),
@@ -2664,7 +2767,7 @@ impl State {
             }
             Content::Ladder(_) | Content::TimeAndSales(_) => Some(100),
             Content::ShaderHeatmap { .. } => None,
-            Content::Starter => None,
+            Content::Starter | Content::News(_) => None,
         }
     }
 
@@ -2792,6 +2895,7 @@ pub enum Content {
     TimeAndSales(Option<TimeAndSales>),
     Ladder(Option<Ladder>),
     Comparison(Option<ComparisonChart>),
+    News(crate::chart::news::NewsTracker),
     Gex {
         chart: Option<GexChart>,
         underlying: exchange::options::OptionsUnderlying,
@@ -2972,6 +3076,9 @@ impl Content {
 
     fn placeholder(kind: ContentKind) -> Self {
         match kind {
+            ContentKind::NewsTracker => Content::News(crate::chart::news::NewsTracker::new(
+                data::news::Config::default(),
+            )),
             ContentKind::Starter => Content::Starter,
             ContentKind::CandlestickChart => Content::Kline {
                 chart: None,
@@ -3034,7 +3141,7 @@ impl Content {
             Content::Ladder(panel) => Some(panel.as_ref()?.last_update()),
             Content::Comparison(chart) => Some(chart.as_ref()?.last_update()),
             Content::Gex { chart, .. } => Some(chart.as_ref()?.last_tick()),
-            Content::Starter => None,
+            Content::Starter | Content::News(_) => None,
             Content::ShaderHeatmap { chart, .. } => Some(chart.as_ref()?.last_tick?),
         }
     }
@@ -3118,6 +3225,7 @@ impl Content {
             | Content::Starter
             | Content::Comparison(_)
             | Content::Gex { .. }
+            | Content::News(_)
             | Content::ShaderHeatmap { .. } => {
                 panic!("indicator reorder on {} pane", self)
             }
@@ -3182,7 +3290,7 @@ impl Content {
             | Content::Ladder(_)
             | Content::Starter
             | Content::Comparison(_) => None,
-            Content::Gex { .. } => None,
+            Content::Gex { .. } | Content::News(_) => None,
         }
     }
 
@@ -3251,6 +3359,7 @@ impl Content {
             Content::Ladder(_) => ContentKind::Ladder,
             Content::Comparison(_) => ContentKind::ComparisonChart,
             Content::Gex { .. } => ContentKind::GexChart,
+            Content::News(_) => ContentKind::NewsTracker,
             Content::Starter => ContentKind::Starter,
             Content::ShaderHeatmap { .. } => ContentKind::ShaderHeatmap,
         }
@@ -3273,7 +3382,7 @@ impl Content {
             Content::Gex {
                 chart, unsupported, ..
             } => chart.is_some() || *unsupported,
-            Content::Starter => true,
+            Content::Starter | Content::News(_) => true,
         }
     }
 
@@ -3306,6 +3415,7 @@ impl PartialEq for Content {
                 | (Content::TimeAndSales(_), Content::TimeAndSales(_))
                 | (Content::Ladder(_), Content::Ladder(_))
                 | (Content::Gex { .. }, Content::Gex { .. })
+                | (Content::News(_), Content::News(_))
         )
     }
 }
@@ -3466,6 +3576,217 @@ mod tests {
             Settings::default(),
             None,
         )
+    }
+
+    #[test]
+    #[ignore = "requires GPU rendering"]
+    fn render_gex_responsive_header() {
+        use iced::advanced::{
+            Layout, layout,
+            renderer::{Headless, Renderer as _},
+            widget::Tree,
+        };
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let mut renderer = runtime
+            .block_on(<iced::Renderer as Headless>::new(
+                iced::advanced::renderer::Settings {
+                    default_text_size: iced::Pixels(12.0),
+                    ..Default::default()
+                },
+                Some("wgpu"),
+            ))
+            .expect("headless renderer");
+        iced_wgpu::graphics::text::font_system()
+            .write()
+            .unwrap()
+            .load_font(std::borrow::Cow::Borrowed(crate::style::AZERET_MONO_BYTES));
+        let mut state = gex_state(data::chart::gex::Config {
+            price_range_percent: 100.0,
+            ..Default::default()
+        });
+        use data::chart::gex::{GexFreshness, GexSignModel, GexSnapshot, GexStrike};
+        use exchange::options::{OptionsProvider, OptionsUnderlying};
+        use std::sync::Arc;
+        if let Content::Gex {
+            chart: Some(chart), ..
+        } = &mut state.content
+        {
+            let strikes = (50..=150)
+                .step_by(5)
+                .map(|strike| GexStrike {
+                    strike: f64::from(strike),
+                    call_gex_1pct: 1.0,
+                    put_gex_1pct: -1.0,
+                    net_gex_1pct: 0.0,
+                    absolute_gamma_1pct: 2.0,
+                    call_open_interest: 1.0,
+                    put_open_interest: 1.0,
+                    expiration_count: 1,
+                    gamma_provenance: data::chart::gex::GexGammaProvenance::Derived,
+                })
+                .collect::<Vec<_>>();
+            chart.set_snapshot(
+                Some(Arc::new(GexSnapshot {
+                    provider: OptionsProvider::Deribit,
+                    underlying: OptionsUnderlying::Btc,
+                    model: GexSignModel::CallPutOiProxy,
+                    expiry_filter: data::chart::gex::GexExpiryFilter::SevenDays,
+                    gamma_source: data::chart::gex::GexGammaSource::BlackScholesDerived,
+                    gamma_provenance: data::chart::gex::GexGammaProvenance::Derived,
+                    source_spot: 100.0,
+                    observed_at: UnixMs::new(1),
+                    calculated_at: UnixMs::new(1),
+                    net_gex_1pct: Some(0.0),
+                    absolute_gex_1pct: 1.0,
+                    call_wall: Some(120.0),
+                    put_wall: Some(80.0),
+                    gamma_flip: Some(95.0),
+                    intrinsic_stress: Default::default(),
+                    gamma_vega: Default::default(),
+                    strikes: strikes.into(),
+                    expiry_strikes: Arc::default(),
+                    scenario_curve: Arc::default(),
+                    scale_p95: 2.0,
+                    proxy: None,
+                })),
+                GexFreshness::Fresh,
+                None,
+            );
+        }
+        let (grid, id) = pane_grid::State::new(());
+        let main_window = Window::new(window::Id::unique());
+        let handles =
+            exchange::adapter::AdapterHandles::spawn_venues(&reqwest::Client::new(), [], None);
+        let (tickers, _) = TickersTable::new(handles, data::MarketMetadata::default());
+        let theme: Theme = data::Theme::default().into();
+        std::fs::create_dir_all("target/gex-layout").unwrap();
+        for width in [180, 220, 320, 480, 760, 960] {
+            let bounds = iced::Rectangle::with_size(iced::Size::new(width as f32, 32.0));
+            renderer.reset(bounds);
+            let mut element = state.view_gex_title(id, 2, false, false, true);
+            let mut tree = Tree::new(element.as_widget());
+            tree.diff(element.as_widget_mut());
+            let node = element.as_widget_mut().layout(
+                &mut tree,
+                &renderer,
+                &layout::Limits::new(iced::Size::ZERO, bounds.size()),
+            );
+            fn verify(layout: Layout<'_>, width: f32) {
+                let bounds = layout.bounds();
+                assert!(
+                    bounds.x >= -0.5 && bounds.x + bounds.width <= width + 0.5,
+                    "Header child outside {width}px pane: {bounds:?}"
+                );
+                for child in layout.children() {
+                    verify(child, width);
+                }
+            }
+            verify(Layout::new(&node), width as f32);
+            let window = iced_core::window::Headless;
+            let mut bus = iced_core::shell::Bus::new();
+            let mut shell =
+                iced_core::Shell::new(&window, iced_core::shell::Waker::noop(), &mut bus);
+            element.as_widget_mut().update(
+                &mut tree,
+                &iced::Event::Window(iced::window::Event::RedrawRequested(
+                    std::time::Instant::now(),
+                )),
+                Layout::new(&node),
+                iced::mouse::Cursor::Unavailable,
+                &renderer,
+                &mut shell,
+                &bounds,
+            );
+            element.as_widget().draw(
+                &tree,
+                &mut renderer,
+                &theme,
+                &iced::advanced::renderer::Style {
+                    text_color: theme.palette().background.base.text,
+                },
+                Layout::new(&node),
+                iced::mouse::Cursor::Unavailable,
+                &bounds,
+            );
+            let bytes = Headless::screenshot(
+                &mut renderer,
+                iced::Size::new(width, 32),
+                1.0,
+                theme.palette().background.base.color,
+            );
+            std::fs::write(format!("target/gex-layout/header-{width}x32.rgba"), bytes).unwrap();
+            for height in [420, 700] {
+                let bounds =
+                    iced::Rectangle::with_size(iced::Size::new(width as f32, height as f32));
+                renderer.reset(bounds);
+                let mut full: Element<'_, Message> = pane_grid::PaneGrid::new(&grid, |id, _, _| {
+                    state.view(
+                        id,
+                        2,
+                        false,
+                        false,
+                        main_window.id,
+                        &main_window,
+                        UserTimezone::Local,
+                        &tickers,
+                        true,
+                    )
+                })
+                .into();
+                let mut tree = Tree::new(full.as_widget());
+                tree.diff(full.as_widget_mut());
+                let node = full.as_widget_mut().layout(
+                    &mut tree,
+                    &renderer,
+                    &layout::Limits::new(iced::Size::ZERO, bounds.size()),
+                );
+                let pane_node = &node.children()[0];
+                assert!(
+                    pane_node.children()[0].size().height <= 32.0,
+                    "GEX title consumed the chart height"
+                );
+                assert!(
+                    pane_node.children()[1].size().height >= height as f32 - 40.0,
+                    "GEX chart has no usable body height"
+                );
+                let mut bus = iced_core::shell::Bus::new();
+                let mut shell =
+                    iced_core::Shell::new(&window, iced_core::shell::Waker::noop(), &mut bus);
+                full.as_widget_mut().update(
+                    &mut tree,
+                    &iced::Event::Window(iced::window::Event::RedrawRequested(
+                        std::time::Instant::now(),
+                    )),
+                    Layout::new(&node),
+                    iced::mouse::Cursor::Unavailable,
+                    &renderer,
+                    &mut shell,
+                    &bounds,
+                );
+                full.as_widget().draw(
+                    &tree,
+                    &mut renderer,
+                    &theme,
+                    &iced::advanced::renderer::Style {
+                        text_color: theme.palette().background.base.text,
+                    },
+                    Layout::new(&node),
+                    iced::mouse::Cursor::Unavailable,
+                    &bounds,
+                );
+                let bytes = Headless::screenshot(
+                    &mut renderer,
+                    iced::Size::new(width, height),
+                    1.0,
+                    theme.palette().background.base.color,
+                );
+                std::fs::write(
+                    format!("target/gex-layout/full-pane-{width}x{height}.rgba"),
+                    bytes,
+                )
+                .unwrap();
+            }
+        }
     }
 
     #[test]

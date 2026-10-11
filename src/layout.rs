@@ -190,7 +190,7 @@ pub fn retarget_dashboard(
                 let b_fallback = retarget_pane(b, market, btc_reference);
                 return a_fallback || b_fallback;
             }
-            data::Pane::Starter { .. } => return false,
+            data::Pane::Starter { .. } | data::Pane::NewsTracker { .. } => return false,
             data::Pane::GexChart {
                 underlying,
                 liquidity_reference,
@@ -460,6 +460,9 @@ impl From<&pane::State> for data::Pane {
         let streams = pane.streams.clone().into_waiting();
 
         match &pane.content {
+            pane::Content::News(news) => data::Pane::NewsTracker {
+                config: news.config.clone(),
+            },
             pane::Content::Starter => data::Pane::Starter {
                 link_group: pane.link_group,
             },
@@ -567,6 +570,12 @@ pub fn configuration(pane: data::Pane) -> Configuration<pane::State> {
             a: Box::new(configuration(*a)),
             b: Box::new(configuration(*b)),
         },
+        data::Pane::NewsTracker { config } => Configuration::Pane(pane::State::from_config(
+            pane::Content::News(crate::chart::news::NewsTracker::new(config)),
+            vec![],
+            data::layout::pane::Settings::default(),
+            None,
+        )),
         data::Pane::Starter { link_group } => Configuration::Pane(pane::State::from_config(
             pane::Content::Starter,
             vec![],
@@ -1272,5 +1281,40 @@ mod market_layout_tests {
             panic!("Kline pane lost")
         };
         assert_eq!(drawings, vec![profile]);
+    }
+}
+
+#[cfg(test)]
+mod news_tests {
+    use super::*;
+    use data::layout::pane::ContentKind;
+
+    #[test]
+    fn news_tracker_round_trips_without_market_streams() {
+        let mut state = pane::State::new();
+        assert!(matches!(
+            state.update(pane::Event::ContentSelected(ContentKind::NewsTracker)),
+            Some(pane::Effect::RefreshStreams)
+        ));
+        state.update(pane::Event::NewsInteraction(
+            crate::chart::news::Message::Assets("BTC,ETH".into()),
+        ));
+        state.update(pane::Event::NewsInteraction(
+            crate::chart::news::Message::Minimum(75),
+        ));
+        assert!(state.stream_pair().is_none());
+        assert!(state.tick(std::time::Instant::now()).is_none());
+        let saved = serde_json::to_string(&data::Pane::from(&state)).unwrap();
+        let restored: data::Pane = serde_json::from_str(&saved).unwrap();
+        let Configuration::Pane(mut restored) = configuration(restored) else {
+            panic!("expected pane")
+        };
+        let pane::Content::News(news) = &restored.content else {
+            panic!("expected News Tracker")
+        };
+        assert_eq!(news.config.assets, "BTC,ETH");
+        assert_eq!(news.config.min_impact, 75);
+        assert!(restored.stream_pair().is_none());
+        assert!(restored.tick(std::time::Instant::now()).is_none());
     }
 }

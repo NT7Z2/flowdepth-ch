@@ -5,6 +5,7 @@ pub mod config;
 pub mod layout;
 pub mod log;
 pub mod metadata;
+pub mod news;
 pub mod orderflow;
 pub mod panel;
 pub mod stream;
@@ -582,6 +583,20 @@ fn sanitize_pane(value: &mut serde_json::Value, warnings: &mut Vec<String>) {
             );
         }
         "Starter" => {}
+        "NewsTracker" => {
+            if let Some(pane) = object
+                .get_mut("NewsTracker")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                let config = pane
+                    .entry("config")
+                    .or_insert_with(|| serde_json::json!({}));
+                if serde_json::from_value::<crate::news::Config>(config.clone()).is_err() {
+                    *config = serde_json::json!({});
+                    warnings.push("invalid News Tracker filters; reset to defaults".into());
+                }
+            }
+        }
         "HeatmapChart" | "ShaderHeatmap" => {
             if let Some(pane) = object
                 .get_mut(&tag)
@@ -1034,6 +1049,24 @@ pub fn cleanup_old_market_data() -> usize {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn news_tracker_filters_survive_saved_state_sanitization() {
+        let mut pane = serde_json::json!({"NewsTracker": {"config": {"assets": "BTC,ETH", "min_impact": 75, "sort_by_impact": true}}});
+        let mut warnings = Vec::new();
+        super::sanitize_pane(&mut pane, &mut warnings);
+        assert!(warnings.is_empty());
+        let super::Pane::NewsTracker { config } = serde_json::from_value(pane).unwrap() else {
+            panic!("expected News Tracker")
+        };
+        assert_eq!(config.assets, "BTC,ETH");
+        assert_eq!(config.min_impact, 75);
+        assert!(config.sort_by_impact);
+        let mut malformed = serde_json::json!({"NewsTracker":{"config":{"min_impact":"bad"}}});
+        super::sanitize_pane(&mut malformed, &mut warnings);
+        assert!(serde_json::from_value::<super::Pane>(malformed).is_ok());
+        assert_eq!(warnings.len(), 1);
+    }
+
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 

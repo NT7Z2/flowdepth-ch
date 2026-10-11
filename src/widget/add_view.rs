@@ -13,6 +13,7 @@ fn label(kind: ContentKind) -> &'static str {
         ContentKind::TimeAndSales => "Time & Sales",
         ContentKind::GexChart => "GEX Options",
         ContentKind::ComparisonChart => "Comparison",
+        ContentKind::NewsTracker => "News Tracker",
         ContentKind::Starter | ContentKind::HeatmapChart => unreachable!("not addable"),
     }
 }
@@ -26,6 +27,7 @@ fn description(kind: ContentKind) -> &'static str {
         ContentKind::TimeAndSales => "Live executed trades",
         ContentKind::GexChart => "BTC/ETH/SOL options exposure",
         ContentKind::ComparisonChart => "Compare markets",
+        ContentKind::NewsTracker => "Crypto news & market impact",
         ContentKind::Starter | ContentKind::HeatmapChart => unreachable!("not addable"),
     }
 }

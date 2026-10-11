@@ -3,6 +3,7 @@ pub mod gex;
 pub mod heatmap;
 pub mod indicator;
 pub mod kline;
+pub mod news;
 pub mod ticks;
 
 use crate::connector::fetcher::{FetchRange, FetchSpec, ReqError, RequestHandler};

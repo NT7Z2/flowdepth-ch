@@ -940,6 +940,15 @@ impl Dashboard {
                             pane::Effect::SwitchTickersInGroup(ticker_info) => {
                                 self.switch_tickers_in_group(handles, main_window.id, ticker_info)
                             }
+                            pane::Effect::ScrollNews(id) => {
+                                return (
+                                    iced::widget::operation::snap_to(
+                                        id,
+                                        iced::widget::scrollable::RelativeOffset { x: 0.0, y: 0.0 },
+                                    ),
+                                    None,
+                                );
+                            }
                             pane::Effect::FocusWidget(id) => {
                                 return (iced::widget::operation::focus(id), None);
                             }
@@ -1526,6 +1535,9 @@ impl Dashboard {
         self.focus = Some((window, target_pane));
 
         let compatible_ticker = inherited_ticker.filter(|ticker| {
+            if content_kind == ContentKind::NewsTracker {
+                return false;
+            }
             content_kind != ContentKind::GexChart
                 || exchange::options::resolve_gex_source(ticker.ticker).is_some()
         });
@@ -2595,6 +2607,51 @@ impl Dashboard {
                 _ => {}
             }
         }
+    }
+
+    pub fn news_subscriptions(
+        &self,
+        main_window: window::Id,
+        proxy: Option<&exchange::proxy::Proxy>,
+    ) -> Subscription<Message> {
+        let mut subscriptions = Vec::new();
+        for (pane_id, state) in self.panes.iter() {
+            let pane_id = *pane_id;
+            subscriptions.push(
+                state
+                    .news_subscription(main_window, pane_id, proxy.cloned())
+                    .with((main_window, pane_id))
+                    .map(|((main_window, pane_id), message)| {
+                        Message::Pane(
+                            main_window,
+                            pane::Message::PaneEvent(
+                                pane_id,
+                                pane::Event::NewsInteraction(message),
+                            ),
+                        )
+                    }),
+            );
+        }
+        for (window_id, (panes, _)) in &self.popout {
+            for (pane_id, state) in panes.iter() {
+                let (window_id, pane_id) = (*window_id, *pane_id);
+                subscriptions.push(
+                    state
+                        .news_subscription(window_id, pane_id, proxy.cloned())
+                        .with((window_id, pane_id))
+                        .map(|((window_id, pane_id), message)| {
+                            Message::Pane(
+                                window_id,
+                                pane::Message::PaneEvent(
+                                    pane_id,
+                                    pane::Event::NewsInteraction(message),
+                                ),
+                            )
+                        }),
+                );
+            }
+        }
+        Subscription::batch(subscriptions)
     }
 
     pub fn market_subscriptions(&self, handles: &AdapterHandles) -> Subscription<exchange::Event> {
