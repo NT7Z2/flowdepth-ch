@@ -18,7 +18,7 @@ Flowdepth combines crypto order-flow charts with footprint and L2 heatmap views,
 
 <div align="center">
   <img
-    src="https://github.com/user-attachments/assets/8ebf2bc1-1a4b-48cc-a108-348a6ef58825"
+    src="https://github.com/user-attachments/assets/8b15b4a7-e689-465f-86cc-a9b3dad50de0"
     alt="Flowdepth desktop terminal showing crypto market charts"
     style="max-width: 100%; height: auto;"
   />
