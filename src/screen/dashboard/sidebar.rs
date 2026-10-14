@@ -175,7 +175,7 @@ impl Sidebar {
                     .align_x(Alignment::Center)
                     .align_y(Alignment::Center),
                 Message::ToggleSidebarMenu(Some(sidebar::Menu::Settings)),
-                Some("Settings"),
+                Some("设置"),
                 tooltip_position,
                 move |theme, status| crate::style::button::toolbar(theme, status, is_active),
             )
@@ -191,7 +191,7 @@ impl Sidebar {
                     .align_x(Alignment::Center)
                     .align_y(Alignment::Center),
                 Message::ToggleSidebarMenu(Some(sidebar::Menu::Layout)),
-                Some("Dashboard layouts"),
+                Some("仪表盘布局"),
                 tooltip_position,
                 move |theme, status| crate::style::button::toolbar(theme, status, is_active),
             )
@@ -205,7 +205,7 @@ impl Sidebar {
                     .align_x(Alignment::Center)
                     .align_y(Alignment::Center),
                 Message::TickersTable(super::tickers_table::Message::ToggleTable),
-                Some("Markets"),
+                Some("市场"),
                 tooltip_position,
                 move |theme, status| crate::style::button::toolbar(theme, status, is_table_open),
             )
@@ -221,7 +221,7 @@ impl Sidebar {
                     .align_x(Alignment::Center)
                     .align_y(Alignment::Center),
                 Message::ToggleSidebarMenu(Some(sidebar::Menu::AddView)),
-                Some("Add view"),
+                Some("添加视图"),
                 tooltip_position,
                 move |theme, status| {
                     crate::style::button::toolbar_primary(theme, status, is_active)
@@ -245,7 +245,7 @@ impl Sidebar {
                     .align_x(Alignment::Center)
                     .align_y(Alignment::Center),
                 Message::ToggleSidebarMenu(Some(sidebar::Menu::Audio)),
-                Some("Audio"),
+                Some("音频"),
                 tooltip_position,
                 move |theme, status| crate::style::button::toolbar(theme, status, is_active),
             )
@@ -283,9 +283,9 @@ impl Sidebar {
                     crate::style::button::toolbar(theme, status, is_active)
                 });
             let details = if expected_count > 0 {
-                format!("Connection status: {state} ({connected_count}/{expected_count})")
+                format!("连接状态：{state}（{connected_count}/{expected_count}）")
             } else {
-                format!("Connection status: {state}")
+                format!("连接状态：{state}")
             };
             tooltip(
                 btn,
