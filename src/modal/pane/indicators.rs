@@ -115,7 +115,7 @@ pub fn view_kline<'a>(
         );
         let show_wicks =
             checkbox(cvd.show_wicks)
-                .label("Show wicks")
+                .label("显示影线")
                 .on_toggle(move |show_wicks| {
                     config_message(
                         pane,
@@ -276,7 +276,7 @@ pub fn view_kline<'a>(
                 });
         let vwap =
             checkbox(svp.show_vwap)
-                .label("Session VWAP level")
+                .label("Session VWAP 水平线")
                 .on_toggle(move |show_vwap| {
                     config_message(
                         pane,
@@ -288,7 +288,7 @@ pub fn view_kline<'a>(
                     )
                 });
         let hi_lo = checkbox(svp.show_session_high_low)
-            .label("Session high / low")
+            .label("Session 高点 / 低点")
             .on_toggle(move |show_session_high_low| {
                 config_message(
                     pane,
@@ -466,7 +466,7 @@ pub fn view_kline<'a>(
         );
         let age_fading =
             checkbox(bubbles.age_fading)
-                .label("Age fading")
+                .label("随时间淡出")
                 .on_toggle(move |age_fading| {
                     config_message(
                         pane,
@@ -481,7 +481,7 @@ pub fn view_kline<'a>(
                     )
                 });
         let three_dimensional = checkbox(bubbles.three_dimensional)
-            .label("3D bubbles")
+            .label("3D 成交气泡")
             .on_toggle(move |three_dimensional| {
                 config_message(
                     pane,
@@ -496,7 +496,7 @@ pub fn view_kline<'a>(
                 )
             });
         let price_response = checkbox(bubbles.price_response_enabled)
-            .label("Price response analysis")
+            .label("价格响应分析")
             .on_toggle(move |price_response_enabled| {
                 config_message(
                     pane,
@@ -623,7 +623,7 @@ pub fn view_kline<'a>(
             },
         );
         let reuse = checkbox(bubbles.use_raw_trades_when_available)
-            .label("Reuse shared raw trades")
+            .label("复用共享原始成交数据")
             .on_toggle(move |use_raw_trades_when_available| {
                 config_message(
                     pane,
@@ -713,7 +713,7 @@ pub fn view_kline<'a>(
             Some(0.25),
         );
         let bands = checkbox(vwap.show_bands)
-            .label("Standard-deviation bands")
+            .label("标准差通道")
             .on_toggle(move |show_bands| {
                 config_message(
                     pane,
@@ -1055,7 +1055,7 @@ pub fn view_kline<'a>(
         );
         let settings = column![
             checkbox(smc.show_swing_structure)
-                .label("Swing structure")
+                .label("Swing Structure（摆动结构）")
                 .on_toggle(move |show_swing_structure| {
                     config_message(
                         pane,
@@ -1069,7 +1069,7 @@ pub fn view_kline<'a>(
                     )
                 }),
             checkbox(smc.show_swing_order_blocks)
-                .label("Swing order blocks")
+                .label("Swing Order Blocks（摆动订单块）")
                 .on_toggle(move |show_swing_order_blocks| {
                     config_message(
                         pane,
@@ -1083,7 +1083,7 @@ pub fn view_kline<'a>(
                     )
                 }),
             checkbox(smc.show_equal_highs_lows)
-                .label("Equal highs/lows")
+                .label("Equal Highs/Lows（等高 / 等低）")
                 .on_toggle(move |show_equal_highs_lows| {
                     config_message(
                         pane,
@@ -1097,7 +1097,7 @@ pub fn view_kline<'a>(
                     )
                 }),
             checkbox(smc.show_fair_value_gaps)
-                .label("Fair value gaps")
+                .label("FVG（公允价值缺口）")
                 .on_toggle(move |show_fair_value_gaps| {
                     config_message(
                         pane,
@@ -1111,7 +1111,7 @@ pub fn view_kline<'a>(
                     )
                 }),
             checkbox(smc.show_premium_discount_zones)
-                .label("Premium/discount zones")
+                .label("Premium / Discount Zones（溢价 / 折价区）")
                 .on_toggle(move |show_premium_discount_zones| {
                     config_message(
                         pane,
@@ -1125,7 +1125,7 @@ pub fn view_kline<'a>(
                     )
                 }),
             checkbox(smc.show_strong_weak_high_low)
-                .label("Strong/weak high/low")
+                .label("Strong / Weak High / Low（强弱高低点）")
                 .on_toggle(move |show_strong_weak_high_low| {
                     config_message(
                         pane,
