@@ -467,7 +467,7 @@ impl Flowsurface {
         if let Some(err) = audio_init_err {
             state
                 .notifications
-                .push(Toast::error(format!("Audio disabled: {err}")));
+                .push(Toast::error(format!("音频功能已禁用：{err}")));
         }
 
         match &state.startup_warning {
@@ -1142,7 +1142,7 @@ impl Flowsurface {
                                         dashboard.block_streams(
                                             main_window.id,
                                             pane_id,
-                                            format!("Metadata not available: {err}"),
+                                            format!("元数据不可用：{err}"),
                                         );
                                     }
                                     Task::none()
@@ -1241,7 +1241,7 @@ impl Flowsurface {
                 if matches!(message, debug_terminal::Message::OpenDataFolder) {
                     if let Err(err) = data::open_data_folder() {
                         self.notifications
-                            .push(Toast::error(format!("Failed to open data folder: {err}")));
+                            .push(Toast::error(format!("无法打开数据文件夹：{err}")));
                     }
                     return Task::none();
                 }
@@ -1356,7 +1356,7 @@ impl Flowsurface {
                                 "Created {name} from the current dashboard. GEX defaults to BTC."
                             )
                         } else {
-                            format!("Created {name} from the current dashboard")
+                            format!("已根据当前仪表盘创建 {name}")
                         }));
                         return Task::done(Message::Layouts(
                             modal::layout_manager::Message::SelectActive(id),
@@ -1446,30 +1446,30 @@ impl Flowsurface {
                             dashboard,
                         );
                         self.notifications
-                            .push(Toast::info(format!("Imported template {name}")));
+                            .push(Toast::info(format!("已导入模板 {name}")));
                     }
                     Err(error) => self.notifications.push(Toast::error(error)),
                 },
                 Ok(None) => {}
                 Err(error) => self
                     .notifications
-                    .push(Toast::error(format!("Could not import template: {error}"))),
+                    .push(Toast::error(format!("无法导入模板：{error}"))),
             },
             Message::TemplateExported(result) => match result {
                 Ok(Some(path)) => self
                     .notifications
-                    .push(Toast::info(format!("Template exported to {path}"))),
+                    .push(Toast::info(format!("模板已导出至 {path}"))),
                 Ok(None) => {}
                 Err(error) => self
                     .notifications
-                    .push(Toast::error(format!("Could not export template: {error}"))),
+                    .push(Toast::error(format!("无法导出模板：{error}"))),
             },
             Message::AudioStream(message) => {
                 if let Some(event) = self.audio_stream.update(message) {
                     match event {
                         modal::audio::UpdateEvent::RetryFailed(err) => {
                             self.notifications
-                                .push(Toast::error(format!("Audio still unavailable: {err}")));
+                                .push(Toast::error(format!("音频功能仍不可用：{err}")));
                         }
                         modal::audio::UpdateEvent::RetrySucceeded => {
                             self.notifications.push(Toast::info(
@@ -1482,13 +1482,13 @@ impl Flowsurface {
             Message::DataFolderRequested => {
                 if let Err(err) = data::open_data_folder() {
                     self.notifications
-                        .push(Toast::error(format!("Failed to open data folder: {err}")));
+                        .push(Toast::error(format!("无法打开数据文件夹：{err}")));
                 }
             }
             Message::OpenUrlRequested(url) => {
                 if let Err(err) = data::open_url(url.as_ref()) {
                     self.notifications
-                        .push(Toast::error(format!("Failed to open link: {err}")));
+                        .push(Toast::error(format!("无法打开链接：{err}")));
                 }
             }
             Message::ThemeEditor(msg) => {
@@ -1758,7 +1758,7 @@ impl Flowsurface {
             };
             return StartupViewState {
                 progress: 0.08 + ratio * 0.24,
-                detail: format!("Loading market metadata ({metadata_loaded}/{metadata_total})…"),
+                detail: format!("正在加载市场元数据（{metadata_loaded}/{metadata_total}）…"),
             };
         }
         if dashboard.unresolved_streams > 0 {
@@ -1802,7 +1802,7 @@ impl Flowsurface {
                 detail: if expected == 0 {
                     "Starting market services…".to_string()
                 } else {
-                    format!("Connecting market streams ({connected}/{expected})…")
+                    format!("正在连接行情数据流（{connected}/{expected}）…")
                 },
             };
         }
@@ -2110,11 +2110,11 @@ impl Flowsurface {
                     .wrapping(iced::widget::text::Wrapping::Word)
                     .width(Length::Fill),
                 row![
-                    button(text("Open backup folder")).on_press(Message::DataFolderRequested),
-                    button(text("Exit without overwriting"))
+                    button(text("打开备份文件夹")).on_press(Message::DataFolderRequested),
+                    button(text("退出且不覆盖"))
                         .style(|theme, status| style::button::transparent(theme, status, false))
                         .on_press(Message::StartupExitWithoutOverwrite),
-                    button(text("Continue with default layout"))
+                    button(text("继续使用默认布局"))
                         .on_press(Message::StartupContinueWithDefault),
                 ]
                 .spacing(8)
@@ -2346,7 +2346,7 @@ impl Flowsurface {
                         })
                     };
 
-                    let toggle_theme_editor = button(text("Theme editor")).on_press(
+                    let toggle_theme_editor = button(text("主题编辑器")).on_press(
                         Message::Sidebar(dashboard::sidebar::Message::ToggleSidebarMenu(Some(
                             sidebar::Menu::ThemeEditor,
                         ))),
@@ -2365,7 +2365,7 @@ impl Flowsurface {
                         };
 
                         let checkbox = iced::widget::checkbox(is_active)
-                            .label("Size in quote currency")
+                            .label("按计价货币显示数量")
                             .on_toggle(|checked| {
                                 let on_dialog_confirm = Message::ApplyVolumeSizeUnit(if checked {
                                     exchange::SizeUnit::Quote
@@ -2397,9 +2397,9 @@ impl Flowsurface {
 
                         let checkbox = tooltip(
                             iced::widget::checkbox(cache_enabled)
-                                .label("Cache ticker metadata")
+                                .label("缓存交易品种元数据")
                                 .on_toggle(Message::SetMetadataCaching),
-                            Some("Cache ticker metadata for faster startup."),
+                            Some("缓存交易品种元数据以加快启动速度。"),
                             TooltipPosition::Top,
                         );
 
@@ -2424,7 +2424,7 @@ impl Flowsurface {
 
                                 tooltip(
                                     btn,
-                                    if loading { None } else { Some("Refresh now") },
+                                    if loading { None } else { Some("立即刷新") },
                                     TooltipPosition::Top,
                                 )
                             };
@@ -2502,29 +2502,29 @@ impl Flowsurface {
 
                     let debug_terminal_checkbox = {
                         let checkbox = iced::widget::checkbox(self.debug_terminal.enabled())
-                            .label("Debug terminal")
+                            .label("调试终端")
                             .on_toggle(Message::ToggleDebugTerminal);
 
                         tooltip(
                             checkbox,
-                            Some("Open a popup terminal with detailed application logs"),
+                            Some("打开弹出式终端，查看详细应用日志"),
                             TooltipPosition::Top,
                         )
                     };
 
                     let open_data_folder = {
                         let button =
-                            button(text("Open data folder")).on_press(Message::DataFolderRequested);
+                            button(text("打开数据文件夹")).on_press(Message::DataFolderRequested);
 
                         tooltip(
                             button,
-                            Some("Open the folder where the data & config is stored"),
+                            Some("打开存储数据和配置文件的文件夹"),
                             TooltipPosition::Top,
                         )
                     };
 
                     let invalidate_market_data_cache = {
-                        let clear_button = button(text("Invalidate market-data cache")).on_press(
+                        let clear_button = button(text("清除行情数据缓存")).on_press(
                             Message::ToggleDialogModal(Some(
                                 screen::ConfirmDialog::new(
                                     "This deletes all cached market data and restarts indicator analysis. Continue?"
