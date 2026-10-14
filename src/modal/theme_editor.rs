@@ -98,7 +98,7 @@ impl ThemeEditor {
                     Component::Warning => new_palette.warning = color,
                 }
 
-                let new_theme = iced_core::Theme::custom("Custom".to_string(), new_palette);
+                let new_theme = iced_core::Theme::custom("自定义".to_string(), new_palette);
                 self.custom_theme = Some(new_theme.clone());
 
                 Some(Action::UpdateTheme(new_theme))
@@ -126,7 +126,7 @@ impl ThemeEditor {
 
                     self.editing = Some(data::config::theme::to_hsva(color));
 
-                    let new_theme = iced_core::Theme::custom("Custom".to_string(), new_palette);
+                    let new_theme = iced_core::Theme::custom("自定义".to_string(), new_palette);
                     self.custom_theme = Some(new_theme.clone());
 
                     action = Some(Action::UpdateTheme(new_theme));
