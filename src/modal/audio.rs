@@ -158,7 +158,7 @@ impl AudioStream {
                 column![
                     text("Audio output unavailable").size(crate::style::text_size::SECTION),
                     text(err.to_string()).size(crate::style::text_size::BODY),
-                    button(text("Retry")).on_press(Message::RetryInit),
+                    button(text("重试")).on_press(Message::RetryInit),
                 ]
                 .spacing(8),
             )
@@ -238,7 +238,7 @@ impl AudioStream {
                                 .style(move |theme, status| {
                                     style::button::transparent(theme, status, is_expanded)
                                 }),
-                            Some("Toggle filters for triggering a sound"),
+                            Some("切换触发声音提示的筛选条件"),
                             TooltipPosition::Top,
                         ));
                     }
@@ -262,7 +262,7 @@ impl AudioStream {
 
                                 column = column.push(
                                     column![
-                                        text(format!("Buy/sell trade count in buffer ≥ {}", v)),
+                                        text(format!("缓冲区中的买入/卖出成交笔数 ≥ {}", v)),
                                         threshold_slider
                                     ]
                                     .padding(8)
@@ -323,7 +323,7 @@ impl AudioStream {
                 let message = err.to_string();
                 log::error!("Audio play error: {message}");
                 self.disable_audio(err)
-                    .then(|| format!("Audio disabled: {message}"))
+                    .then(|| format!("音频功能已禁用：{message}"))
             }
         }
     }
