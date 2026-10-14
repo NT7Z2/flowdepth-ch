@@ -376,7 +376,7 @@ impl LayoutManager {
                 let target = layout.id.unique;
                 let target_row: Element<'_, Message> = if self.overwrite_target == Some(target) {
                     row![
-                        text(format!("Replace {}?", layout.id.name))
+                        text(format!("替换 {}？", layout.id.name))
                             .size(crate::style::text_size::BODY),
                         space::horizontal(),
                         button("取消").on_press(Message::CancelOverwrite),
@@ -474,7 +474,7 @@ impl LayoutManager {
 
                         layout_row = layout_row
                             .push(center(
-                                text(format!("Delete {}?", layout.id.name))
+                                text(format!("删除 {}？", layout.id.name))
                                     .size(crate::style::text_size::BODY),
                             ))
                             .push(confirm_btn)
