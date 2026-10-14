@@ -121,11 +121,11 @@ fn text_style(level: Option<LogLevel>) -> impl Fn(&iced::Theme) -> iced::widget:
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Error => write!(f, "Error"),
-            Self::Warn => write!(f, "Warn"),
-            Self::Info => write!(f, "Info"),
-            Self::Debug => write!(f, "Debug"),
-            Self::Trace => write!(f, "Trace"),
+            Self::Error => write!(f, "错误"),
+            Self::Warn => write!(f, "警告"),
+            Self::Info => write!(f, "信息"),
+            Self::Debug => write!(f, "调试"),
+            Self::Trace => write!(f, "跟踪"),
         }
     }
 }
@@ -508,7 +508,7 @@ impl State {
 
         // Top row: title + stats
         let header = row![
-            text("Debug terminal")
+            text("调试终端")
                 .size(crate::style::text_size::SECTION)
                 .width(Length::Fill),
             text(format!("{visible} visible / {total} total")).size(crate::style::text_size::SMALL),
@@ -536,19 +536,19 @@ impl State {
 
         // Toolbar row
         let toolbar = row![
-            button(text("Clear")).on_press(Message::Clear),
-            button(text("Refresh")).on_press(Message::Refresh),
-            button(text("Copy all")).on_press(Message::CopyAll),
-            button(text("Copy visible")).on_press(Message::CopyVisible),
-            button(text("Open data folder")).on_press(Message::OpenDataFolder),
+            button(text("清空")).on_press(Message::Clear),
+            button(text("刷新")).on_press(Message::Refresh),
+            button(text("复制全部")).on_press(Message::CopyAll),
+            button(text("复制可见日志")).on_press(Message::CopyVisible),
+            button(text("打开数据文件夹")).on_press(Message::OpenDataFolder),
             checkbox(self.auto_scroll)
-                .label("Auto-scroll")
+                .label("自动滚动")
                 .on_toggle(Message::ToggleAutoScroll),
             checkbox(self.app_only)
-                .label("App only")
+                .label("仅应用日志")
                 .on_toggle(Message::ToggleAppOnly),
             checkbox(self.compact_mode)
-                .label("Compact")
+                .label("紧凑模式")
                 .on_toggle(Message::ToggleCompactMode),
         ]
         .align_y(Alignment::Center)
@@ -557,26 +557,26 @@ impl State {
         // Filter row
         let level_checkboxes = row![
             checkbox(self.level_filter.error)
-                .label("Error")
+                .label("错误")
                 .on_toggle(|on| Message::ToggleLevel(LogLevel::Error, on)),
             checkbox(self.level_filter.warn)
-                .label("Warn")
+                .label("警告")
                 .on_toggle(|on| Message::ToggleLevel(LogLevel::Warn, on)),
             checkbox(self.level_filter.info)
-                .label("Info")
+                .label("信息")
                 .on_toggle(|on| Message::ToggleLevel(LogLevel::Info, on)),
             checkbox(self.level_filter.debug)
-                .label("Debug")
+                .label("调试")
                 .on_toggle(|on| Message::ToggleLevel(LogLevel::Debug, on)),
             checkbox(self.level_filter.trace)
-                .label("Trace")
+                .label("跟踪")
                 .on_toggle(|on| Message::ToggleLevel(LogLevel::Trace, on)),
         ]
         .align_y(Alignment::Center)
         .spacing(8);
 
         let filters = row![
-            text_input("Search logs...", &self.search)
+            text_input("搜索日志...", &self.search)
                 .on_input(Message::SearchChanged)
                 .width(Length::Fill),
             level_checkboxes,
@@ -592,7 +592,7 @@ impl State {
 
         // Log body
         let log_body: Element<'static, Message> = if filtered.is_empty() {
-            text("No logs captured yet")
+            text("尚未捕获日志")
                 .size(crate::style::text_size::SMALL)
                 .font(iced::Font::MONOSPACE)
                 .into()
