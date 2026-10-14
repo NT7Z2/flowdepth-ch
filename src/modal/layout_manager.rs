@@ -173,7 +173,7 @@ impl LayoutManager {
         self.active_layout_id = Some(layout_id);
 
         self.get_mut(layout_id)
-            .ok_or_else(|| "Layout not found".into())
+            .ok_or_else(|| "未找到布局".into())
     }
 
     pub fn update(&mut self, message: Message) -> Option<Action> {
@@ -317,7 +317,7 @@ impl LayoutManager {
             button(icon_text(style::Icon::Return, 12))
                 .on_press(Message::ToggleEditMode(Editing::Preview))
         } else {
-            button(text("Edit")).on_press(Message::ToggleEditMode(Editing::Preview))
+            button(text("编辑")).on_press(Message::ToggleEditMode(Editing::Preview))
         };
 
         content = content.push(row![
@@ -327,7 +327,7 @@ impl LayoutManager {
                         style::button::transparent(theme, status, self.add_menu_open)
                     })
                     .on_press(Message::ToggleAddMenu),
-                Some("Save or create template"),
+                Some("保存或创建模板"),
                 TooltipPosition::Top,
             ),
             space::horizontal(),
@@ -337,7 +337,7 @@ impl LayoutManager {
                 row![
                     tooltip(
                         button("i").style(style::button::info),
-                        Some("Layouts won't be saved if app exits abruptly"),
+                        Some("如果应用意外退出，布局可能无法保存"),
                         TooltipPosition::Top,
                     ),
                     edit_btn,
@@ -352,13 +352,13 @@ impl LayoutManager {
             content = content.push(
                 container(
                     column![
-                        text("New layout for another market")
+                        text("为其他市场创建新布局")
                             .size(crate::style::text_size::SECTION),
-                        text("Choose a market to copy the current dashboard. GEX defaults to BTC when the market is unsupported.")
+                        text("选择一个市场以复制当前仪表盘。不支持的市场将默认使用 BTC 的 GEX。")
                             .size(crate::style::text_size::SMALL),
                         container(picker.view(tickers, None, None).map(Message::MarketPicker))
                             .height(260),
-                        button("Back").on_press(Message::ToggleMarketPicker),
+                        button("返回").on_press(Message::ToggleMarketPicker),
                     ]
                     .spacing(8),
                 )
@@ -379,8 +379,8 @@ impl LayoutManager {
                         text(format!("Replace {}?", layout.id.name))
                             .size(crate::style::text_size::BODY),
                         space::horizontal(),
-                        button("Cancel").on_press(Message::CancelOverwrite),
-                        button("Save").on_press(Message::ConfirmOverwrite(target)),
+                        button("取消").on_press(Message::CancelOverwrite),
+                        button("保存").on_press(Message::ConfirmOverwrite(target)),
                     ]
                     .spacing(6)
                     .align_y(iced::Alignment::Center)
@@ -397,23 +397,23 @@ impl LayoutManager {
 
             let existing = if self.layouts.len() > 1 {
                 column![
-                    text("Save current to existing").size(crate::style::text_size::SECTION),
+                    text("保存到现有模板").size(crate::style::text_size::SECTION),
                     save_targets,
                 ]
                 .spacing(6)
             } else {
-                column![text("No other templates yet").size(crate::style::text_size::SMALL)]
+                column![text("暂无其他模板").size(crate::style::text_size::SMALL)]
             };
 
             let active_actions = if let Some(active) = active {
                 column![
                     button(
-                        row![icon_text(Icon::Clone, 12), text("Save current as new")].spacing(8)
+                        row![icon_text(Icon::Clone, 12), text("将当前布局另存为新模板")].spacing(8)
                     )
                     .width(iced::Length::Fill)
                     .on_press(Message::SaveCurrentAsNew),
                     button(
-                        row![icon_text(Icon::Clone, 12), text("Copy for another market")]
+                        row![icon_text(Icon::Clone, 12), text("复制到其他市场")]
                             .spacing(8)
                     )
                     .width(iced::Length::Fill)
@@ -421,7 +421,7 @@ impl LayoutManager {
                     button(
                         row![
                             template_svg(include_bytes!("../../assets/ui/template-export.svg")),
-                            text("Export current"),
+                            text("导出当前布局"),
                         ]
                         .spacing(8),
                     )
@@ -436,15 +436,15 @@ impl LayoutManager {
             content = content.push(
                 container(
                     column![
-                        text("Templates").size(crate::style::text_size::SECTION),
+                        text("模板").size(crate::style::text_size::SECTION),
                         active_actions,
-                        button(row![text("+"), text("Create empty template")].spacing(8))
+                        button(row![text("+"), text("创建空白模板")].spacing(8))
                             .width(iced::Length::Fill)
                             .on_press(Message::AddLayout),
                         button(
                             row![
                                 template_svg(include_bytes!("../../assets/ui/template-import.svg")),
-                                text("Import template"),
+                                text("导入模板"),
                             ]
                             .spacing(8),
                         )
@@ -485,7 +485,7 @@ impl LayoutManager {
                 }
                 Editing::Renaming(renaming_id, name) => {
                     if *renaming_id == layout_id.unique {
-                        let input_box = text_input("New layout name", name)
+                        let input_box = text_input("新布局名称", name)
                             .on_input(|new_name| Message::Renaming(new_name.clone()))
                             .on_submit(Message::SetLayoutName(*renaming_id, name.clone()));
 
@@ -559,7 +559,7 @@ impl LayoutManager {
 
         if self.edit_mode != Editing::None {
             content = content.push(
-                button(text("Add layout"))
+                button(text("添加布局"))
                     .style(move |t, s| style::button::transparent(t, s, true))
                     .width(iced::Length::Fill)
                     .on_press(Message::AddLayout),
@@ -608,7 +608,7 @@ fn create_clone_button<'a>(layout: &LayoutId) -> Element<'a, Message> {
             |theme, status| style::button::layout_name(theme, *status),
             Some(Message::CloneLayout(layout.unique)),
         ),
-        Some("Clone layout"),
+        Some("克隆布局"),
         TooltipPosition::Top,
     )
 }
