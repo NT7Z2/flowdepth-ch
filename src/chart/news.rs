@@ -624,7 +624,7 @@ impl NewsTracker {
                 container(visual::icon(NewsIcon::Search, 16))
                     .height(32)
                     .align_y(iced::Alignment::Center),
-                text_input("Search headlines or topics", &self.config.search)
+                text_input("搜索新闻标题或主题", &self.config.search)
                     .on_input(Message::Search),
                 visual::action(
                     NewsIcon::Filter,
@@ -699,7 +699,7 @@ impl NewsTracker {
                     );
                 }
                 let filters = column![
-                    text_input("Watchlist: BTC, Ethereum, SOLUSDT...", &self.config.assets)
+                    text_input("关注列表：BTC、Ethereum、SOLUSDT...", &self.config.assets)
                         .on_input(Message::Assets),
                     assets.wrap(),
                     row![
@@ -724,13 +724,13 @@ impl NewsTracker {
                     .spacing(6)
                     .align_y(iced::Alignment::Center),
                     checkbox(self.config.sort_by_impact)
-                        .label("Highest relevance first")
+                        .label("按相关性从高到低排序")
                         .on_toggle(Message::Sort),
                     checkbox(!self.config.exclude_macro)
-                        .label("Include macro in watchlist")
+                        .label("在关注列表中包含宏观主题")
                         .on_toggle(Message::Macro),
                     checkbox(self.config.comfortable)
-                        .label("Expanded rows")
+                        .label("展开新闻行")
                         .on_toggle(Message::Comfortable),
                 ]
                 .spacing(6);
