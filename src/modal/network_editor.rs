@@ -250,7 +250,7 @@ impl QuantWheelForm {
             QuantWheelMsg::RequestCode => {
                 let email = self.email.trim().to_ascii_lowercase();
                 if email.is_empty() || !email.contains('@') {
-                    *error = Some("Enter a valid QuantWheel email".to_owned());
+                    *error = Some("请输入有效的 QuantWheel 邮箱".to_owned());
                 } else {
                     self.busy = true;
                     *error = None;
@@ -259,7 +259,7 @@ impl QuantWheelForm {
             }
             QuantWheelMsg::VerifyCode => {
                 if self.code.len() != 6 {
-                    *error = Some("Enter the 6-digit QuantWheel code".to_owned());
+                    *error = Some("请输入 QuantWheel 的 6 位验证码".to_owned());
                 } else {
                     self.busy = true;
                     *error = None;
@@ -302,31 +302,31 @@ impl QuantWheelForm {
 
     fn view(&self) -> Element<'_, QuantWheelMsg> {
         let status = if self.authenticated {
-            "Authenticated session stored securely"
+            "已安全保存认证会话"
         } else if self.code_sent {
-            "Code sent — check your email"
+            "验证码已发送，请检查邮箱"
         } else {
-            "Anonymous access (5 results/day)"
+            "匿名访问（每天 5 次结果）"
         };
         let mut form = column![text(status).size(crate::style::text_size::SMALL)].spacing(6);
         if self.authenticated {
-            form = form.push(button("Sign out").on_press(QuantWheelMsg::Logout));
+            form = form.push(button("退出登录").on_press(QuantWheelMsg::Logout));
         } else {
             form = form.push(
-                text_input("QuantWheel email", &self.email)
+                text_input("QuantWheel 邮箱", &self.email)
                     .on_input(QuantWheelMsg::EmailChanged)
                     .on_submit(QuantWheelMsg::RequestCode),
             );
             if self.code_sent {
                 form = form.push(
                     row![
-                        text_input("6-digit code", &self.code)
+                        text_input("6 位验证码", &self.code)
                             .on_input(QuantWheelMsg::CodeChanged)
                             .on_submit(QuantWheelMsg::VerifyCode),
                         button(if self.busy {
-                            "Signing in…"
+                            "正在登录…"
                         } else {
-                            "Sign in"
+                            "登录"
                         })
                         .on_press_maybe((!self.busy).then_some(QuantWheelMsg::VerifyCode)),
                     ]
@@ -335,9 +335,9 @@ impl QuantWheelForm {
             } else {
                 form = form.push(
                     button(if self.busy {
-                        "Sending…"
+                        "正在发送…"
                     } else {
-                        "Send login code"
+                        "发送登录验证码"
                     })
                     .on_press_maybe((!self.busy).then_some(QuantWheelMsg::RequestCode)),
                 );
@@ -467,7 +467,7 @@ impl ProxyForm {
         let applied_proxy = {
             let effective = effective_cfg
                 .map(|c| c.to_ui_string())
-                .unwrap_or_else(|| "None (direct connection)".to_string());
+                .unwrap_or_else(|| "无（直接连接）".to_string());
 
             let pending_url = if is_pending {
                 Some(
@@ -476,7 +476,7 @@ impl ProxyForm {
                         .flatten()
                         .as_ref()
                         .map(|c| c.to_ui_string())
-                        .unwrap_or_else(|| "None (direct connection)".to_string()),
+                        .unwrap_or_else(|| "无（直接连接）".to_string()),
                 )
             } else {
                 None
@@ -484,7 +484,7 @@ impl ProxyForm {
 
             let mut lines = column![
                 row![
-                    text("Effective:").size(crate::style::text_size::SMALL),
+                    text("当前生效：").size(crate::style::text_size::SMALL),
                     text(effective).size(crate::style::text_size::BODY),
                 ]
                 .spacing(4)
@@ -496,7 +496,7 @@ impl ProxyForm {
             if let Some(pending) = pending_url {
                 lines = lines.push(
                     row![
-                        text("Pending:").size(crate::style::text_size::SMALL),
+                        text("待应用：").size(crate::style::text_size::SMALL),
                         text(pending).size(crate::style::text_size::BODY),
                     ]
                     .spacing(4)
@@ -509,7 +509,7 @@ impl ProxyForm {
 
         let scheme_row = row![
             iced::widget::space::horizontal(),
-            text("Scheme:"),
+            text("协议："),
             pick_list(ProxyScheme::ALL, Some(self.scheme), ProxyMsg::SchemeChanged)
         ]
         .spacing(8)
@@ -517,8 +517,8 @@ impl ProxyForm {
 
         let host_row = row![
             iced::widget::space::horizontal(),
-            text("Host:"),
-            text_input("e.g. 127.0.0.1", &self.host)
+            text("主机："),
+            text_input("例如：127.0.0.1", &self.host)
                 .on_input(ProxyMsg::HostChanged)
                 .width(200)
         ]
@@ -527,8 +527,8 @@ impl ProxyForm {
 
         let port_row = row![
             iced::widget::space::horizontal(),
-            text("Port:"),
-            text_input("e.g. 8080", &self.port)
+            text("端口："),
+            text_input("例如：8080", &self.port)
                 .on_input(ProxyMsg::PortChanged)
                 .width(200)
         ]
@@ -537,8 +537,8 @@ impl ProxyForm {
 
         let username_row = row![
             iced::widget::space::horizontal(),
-            text("Username:"),
-            text_input("(optional)", &self.username)
+            text("用户名："),
+            text_input("（可选）", &self.username)
                 .on_input(ProxyMsg::UsernameChanged)
                 .width(200)
         ]
@@ -547,14 +547,14 @@ impl ProxyForm {
 
         let password_row = row![
             iced::widget::space::horizontal(),
-            text("Password:"),
-            text_input("(optional)", &self.password)
+            text("密码："),
+            text_input("（可选）", &self.password)
                 .on_input(ProxyMsg::PasswordChanged)
                 .width(180)
                 .secure(self.hide_password),
             tooltip(
                 checkbox(self.hide_password).on_toggle(ProxyMsg::ToggleShowPassword),
-                Some("Hide"),
+                Some("隐藏"),
                 iced::widget::tooltip::Position::Top,
             ),
         ]
@@ -562,7 +562,7 @@ impl ProxyForm {
         .align_y(iced::Alignment::Center);
 
         let buttons: Element<'_, ProxyMsg> = {
-            let msg = "Restore proxy settings to default";
+            let msg = "将代理设置恢复为默认值";
 
             match confirm {
                 ConfirmState::ProxyClear => confirm_row(msg, ProxyMsg::Clear, ProxyMsg::Cancel),
@@ -781,19 +781,19 @@ impl FetchForm {
         };
 
         let fetch_checkbox = checkbox(self.draft_active)
-            .label("Fetch trades")
+            .label("获取成交数据")
             .on_toggle(FetchMsg::ToggleFetchTrades);
 
         let mut fetch_section = column![tooltip(
             fetch_checkbox,
-            Some("Fetch historical trade data for footprint charts"),
+            Some("为 Footprint（订单足迹图）获取历史成交数据"),
             iced::widget::tooltip::Position::Top,
         ),]
         .spacing(8);
 
         if self.draft_active {
             let exchange_radio = container(radio(
-                "Exchange (Binance only)",
+                "交易所（完整历史仅支持 Binance）",
                 FetchModeTag::Exchange,
                 selected_tag,
                 FetchMsg::SelectFetchMode,
@@ -807,7 +807,7 @@ impl FetchForm {
             let server_radio = {
                 let radio_row = row![
                     radio(
-                        "Server",
+                        "服务器",
                         FetchModeTag::Server,
                         selected_tag,
                         FetchMsg::SelectFetchMode,
@@ -824,7 +824,7 @@ impl FetchForm {
                 let config = if self.expanded_server {
                     let server_input = row![
                         iced::widget::space::horizontal(),
-                        text("URL:"),
+                        text("URL："),
                         text_input("http://127.0.0.1:8080", &self.server_url_input)
                             .on_input(FetchMsg::ServerUrlChanged)
                             .width(180),
@@ -834,14 +834,14 @@ impl FetchForm {
 
                     let auth_token_input = row![
                         iced::widget::space::horizontal(),
-                        text("Auth:"),
-                        text_input("(optional)", &self.server_auth_token_input)
+                        text("认证："),
+                        text_input("（可选）", &self.server_auth_token_input)
                             .on_input(FetchMsg::ServerAuthTokenChanged)
                             .width(160)
                             .secure(self.hide_token),
                         tooltip(
                             checkbox(self.hide_token).on_toggle(FetchMsg::ToggleShowToken),
-                            Some("Hide"),
+                            Some("隐藏"),
                             iced::widget::tooltip::Position::Top,
                         ),
                     ]
@@ -876,7 +876,7 @@ impl FetchForm {
             || (*effective_mode == fetcher::TradeFetchMode::Server && effective_url.is_some());
 
         let buttons: Element<'_, FetchMsg> = {
-            let msg = "Restore fetch settings to default";
+            let msg = "将历史数据获取设置恢复为默认值";
 
             match confirm {
                 ConfirmState::FetchClear => {
@@ -896,7 +896,7 @@ impl FetchForm {
         column![
             row![
                 iced::widget::rule::horizontal(1),
-                text("Historical backfill").size(crate::style::text_size::SECTION),
+                text("历史数据回填").size(crate::style::text_size::SECTION),
                 iced::widget::rule::horizontal(1),
             ]
             .spacing(4)
@@ -953,13 +953,13 @@ impl FetchForm {
                     let url = self.trimmed_url();
                     if url.is_none() || url.as_deref().is_none_or(|u| u.trim().is_empty()) {
                         *error =
-                            Some("Server URL is required when mode is set to Server".to_string());
+                            Some("模式设为 Server 时必须填写服务器 URL".to_string());
                         return None;
                     }
                     if let Some(ref u) = url
                         && url::Url::parse(u).is_err()
                     {
-                        *error = Some("Server URL is not a valid URL".to_string());
+                        *error = Some("服务器 URL 格式无效".to_string());
                         return None;
                     }
                 }
@@ -1045,7 +1045,7 @@ fn apply_action_row<'a, M: Clone + 'a + 'static>(
     .spacing(8);
 
     if draft_differs {
-        row_buttons = row_buttons.push(button("Apply").on_press(apply_msg).height(28));
+        row_buttons = row_buttons.push(button("应用").on_press(apply_msg).height(28));
     }
 
     if has_config {
@@ -1067,7 +1067,7 @@ fn pending_info<M: Clone + 'static>(is_pending: bool) -> Option<Element<'static,
     if is_pending {
         Some(tooltip(
             button("i").style(style::button::info).height(28),
-            Some("Pending changes require a full restart"),
+            Some("待应用的更改需要完整重启后生效"),
             iced::widget::tooltip::Position::Top,
         ))
     } else {
